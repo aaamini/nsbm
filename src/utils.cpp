@@ -14,6 +14,8 @@ void print_progress(int itr, int itr_max) {
                             << std::setw(width) << itr_max << ")\r";
 }
 
+
+
 //' @export
 // [[Rcpp::export]]
 double nhamming(const arma::sp_mat & A, int i, int j) {
@@ -284,6 +286,31 @@ List comp_blk_sums_and_sizes(arma::sp_mat At, arma::uvec z, int Kcap, bool div_d
         Rcpp::Named("NN") = NN
     );
 }
+
+
+// [[Rcpp::export]]
+arma::mat beta_fun_symmat(arma::mat a, arma::mat b) {
+    // Computes beta function over symmetric matrix arguments
+    // only computes the lower triangular part + diagonal; set the rest to 1
+    int K = a.n_rows;
+    arma::mat out(K, K, arma::fill::ones);
+    for (int k = 0; k < K; k++) {
+        for (int el = 0; el <= k; el++) {
+            out(k, el) = R::beta(a(k, el), b(k, el));
+        }
+    }
+    return out;
+}
+
+// [[Rcpp::export]]
+arma::mat comp_beta_matrix(arma::sp_mat& A, arma::uvec& z, const int K, double alpha, double beta) {
+    List out = comp_blk_sums_and_sizes(A, z, K);
+    arma::mat lambda = out["lambda"];
+    arma::umat NN = out["NN"]; 
+            
+    return beta_fun_symmat(lambda + alpha, NN - lambda + beta);
+}
+
 
 
 

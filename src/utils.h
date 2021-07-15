@@ -28,5 +28,9 @@ arma::vec sp_single_col_compress(arma::sp_mat A, int col_idx, arma::uvec z, int 
 
 arma::mat comp_blk_sums_diff(arma::sp_mat& A, int s, int zs_new, arma::uvec& z, int Kcap);
 
+arma::mat beta_fun_symmat(arma::mat a, arma::mat b);
+
+arma::mat comp_beta_matrix(arma::sp_mat& A, arma::uvec& z, const int K, double alpha, double beta);
+
 void print_progress(int itr, int itr_max);                    
 #endif /* __UTILS__ */

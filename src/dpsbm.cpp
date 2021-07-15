@@ -18,29 +18,21 @@ arma::umat fit_dpsbm(arma::sp_mat & A,
     int n = A.n_rows;
 
     arma::umat z_hist(n, niter, arma::fill::zeros);
-    // arma::uvec z(n, arma::fill::ones); 
     arma::uvec z = sample_int_vec(Zcap, n);
     arma::mat B(Zcap, Zcap, arma::fill::zeros);   
-    // arma::vec pri(Zcap); 
     arma::vec gamp(Zcap), gam(Zcap);
     arma::vec unif(n, arma::fill::randu);
 
     for (int iter = 0; iter < niter; iter++) {
         List out = comp_blk_sums_and_sizes(A, z, Zcap);
-
         arma::mat lambda = out["lambda"];
         arma::umat NN = out["NN"]; 
         B = symmat_rbeta(lambda + alpha, NN - lambda + beta);
+
         arma::mat uu = log(B/(1-B) + 1e-11);
         arma::mat vv = log(1-B + 1e-11);
 
         gamp = gem_gibbs_update(z, Zcap, gam0);
-
-        // arma::uvec count1 = get_freq(z, Zcap);
-        // arma::uvec count2 = get_up_freq(count1);
-
-        // gamp = rbeta_vec(arma::conv_to<arma::vec>::from(count1) + 1, 
-        //                  arma::conv_to<arma::vec>::from(count2) + gam0);
         gam = stick_break(gamp);
         
         arma::vec Hi(Zcap, arma::fill::zeros);
@@ -60,6 +52,60 @@ arma::umat fit_dpsbm(arma::sp_mat & A,
             }
             
             z(i) = sample_index(safe_exp(Hi));
+        }
+        z_hist.col(iter) = z + 1; // +1 is to put the labels on 1-based indexing
+    }
+    return z_hist;
+
+}
+
+
+// [[Rcpp::export]]
+arma::umat fit_dpsbm_collapsed(arma::sp_mat & A, 
+                const double gam0 = 1,  
+                const double alpha = 1, const double beta = 1,
+                const int niter = 50, const int Zcap = 20, 
+                const bool verb = true) {
+
+    int n = A.n_rows;
+
+    arma::umat z_hist(n, niter, arma::fill::zeros);
+    arma::uvec z = sample_int_vec(Zcap, n);
+    arma::vec gamp(Zcap), gam(Zcap);
+    // arma::vec unif(n, arma::fill::randu);
+    arma::uvec z_new(n, arma::fill::zeros);
+    // arma::vec pri(K, arma::fill::zeros);
+    arma::mat Bet(Zcap, Zcap);
+
+    for (int iter = 0; iter < niter; iter++) {
+        // List out = comp_blk_sums_and_sizes(A, z, Zcap);
+        // arma::mat lambda = out["lambda"];
+        // arma::umat NN = out["NN"]; 
+        // B = symmat_rbeta(lambda + alpha, NN - lambda + beta);
+
+        // arma::mat uu = log(B/(1-B) + 1e-11);
+        // arma::mat vv = log(1-B + 1e-11);
+
+        gamp = gem_gibbs_update(z, Zcap, gam0);
+        gam = stick_break(gamp);
+        
+        // arma::vec Hi(Zcap, arma::fill::zeros);
+
+        for (int s = 0; s < n; s++) {
+            Bet = comp_beta_matrix(A, z, Zcap, alpha, beta);
+            // arma::vec nn = arma::conv_to<arma::vec>::from(get_freq(z, Zcap));
+            // pri = rdirichlet(nn + 1);
+
+            arma::vec prob(Zcap, arma::fill::ones);
+            for (int rp = 0; rp < Zcap; rp++) { // rp is the potential new value of z(s)
+                z_new = z;
+                z_new(s) = rp;
+                arma::mat Bet_new =  comp_beta_matrix(A, z_new, Zcap, alpha, beta);;
+                prob(rp) *= arma::prod(arma::prod(Bet_new / Bet)) * gam(rp);
+                // prob(rp) *= static_cast<double>((nn(rp) + 1)) / nn(z(s)); 
+            }
+
+            z(s) = sample_index(prob);; // update z
         }
         z_hist.col(iter) = z + 1; // +1 is to put the labels on 1-based indexing
     }
