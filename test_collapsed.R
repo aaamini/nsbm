@@ -40,6 +40,15 @@ for (rep in 1:nreps) {
                                 method = "collapsed"))
     
     z_list = convert_cpp_label_matrix_to_list(
+      multsbm_collapsed_gibbs_sampler_v2(A, K, alpha = alpha1, beta = beta1, niter = niter)
+    )
+    res = rbind(res, data.frame(iter = 1:niter, 
+                                rep = rep, 
+                                rep_per_net = j,
+                                nmi = comp_agg_nmi_path(z_list), 
+                                method = "collapsed-v2"))
+    
+    z_list = convert_cpp_label_matrix_to_list(
       multsbm_gibbs_sampler_fast(A, K, alpha1, beta = beta1, niter = niter)
     )
     # z_list = lapply(1:niter, function(it) list(out[,it]+1))

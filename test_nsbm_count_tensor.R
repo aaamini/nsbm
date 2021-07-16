@@ -12,7 +12,7 @@ for (j in 1:J) {
   A[[j]] = nett::fast_sbm(xi_tru[[j]], eta[[z_tru[j]]])
 }
 
-Rcpp::sourceCpp("hsbm_package/src/utils.cpp", verbose = T)
+Rcpp::sourceCpp("src/utils.cpp", verbose = T)
 
 # `comp_blk_sums` is a function in utils.cpp
 comp_blk_sums(A[[2]], xi_tru[[2]]-1, L) + comp_blk_sums(A[[3]], xi_tru[[3]]-1, L)

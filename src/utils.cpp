@@ -15,6 +15,11 @@ void print_progress(int itr, int itr_max) {
 }
 
 
+// void print_arma_obj(auto & x) {
+    // Rcpp::print(Rcpp:wrap(x));
+// }
+
+
 
 //' @export
 // [[Rcpp::export]]
@@ -203,28 +208,146 @@ arma::vec sp_single_col_compress(arma::sp_mat A, int col_idx, arma::uvec z, int 
     return b;
 }
 
+// // This is for DCSBM setup
+// arma::mat comp_blk_sums_diff(arma::sp_mat& A, int s, int zs_new, arma::uvec& z, int Kcap) {
+//     // This requires fixing since it is assumming the Poi-DCSBM setup 
+
+//     int zs = z(s);
+//     double Ass =  A(s,s);
+
+//     arma::vec U =  sp_single_col_compress(A, s, z, Kcap);
+//     U(z(s)) -= Ass;
+
+//     arma::vec delta(Kcap, arma::fill::zeros);
+//     delta(zs_new)++;
+//     delta(zs)--;
+
+//     arma::mat D = delta*U.t() + U*delta.t();
+
+//     // We can put an if here: if (zs != zs_new) -- not sure if it improves performance
+//     D(zs_new, zs_new) += Ass;
+//     D(zs, zs) -= Ass;
+
+//     return D;
+// }
+
 // [[Rcpp::export]]
-arma::mat comp_blk_sums_diff(arma::sp_mat& A, int s, int zs_new, arma::uvec& z, int Kcap) {
-    // This requires fixing since it is assumming the Poi-DCSBM setup 
+arma::mat comp_blk_sums_diff_v1(const arma::vec& U, const int zs_new, const int zs_old) {
+    // Assumes A(s,s) is zero
+    // arma::vec U =  sp_single_col_compress(A, s, z, Kcap);
 
-    int zs = z(s);
-    double Ass =  A(s,s);
-
-    arma::vec U =  sp_single_col_compress(A, s, z, Kcap);
-    U(z(s)) -= Ass;
-
-    arma::vec delta(Kcap, arma::fill::zeros);
+    arma::vec delta(U.n_elem, arma::fill::zeros);
     delta(zs_new)++;
-    delta(zs)--;
+    delta(zs_old)--;
 
     arma::mat D = delta*U.t() + U*delta.t();
-
-    // We can put an if here: if (zs != zs_new) -- not sure if it improves performance
-    D(zs_new, zs_new) += Ass;
-    D(zs, zs) -= Ass;
-
+    D.diag() /= 2;
+    
     return D;
 }
+
+
+// [[Rcpp::export]]
+arma::mat comp_blk_sums_diff_v2(const arma::vec& U, const int zs_new, const int zs_old) {
+    // Assumes A(s,s) is zero
+    // arma::vec U = sp_single_col_compress(A, s, z, K);
+
+    arma::mat D(U.n_elem, U.n_elem, arma::fill::zeros);
+    D.row(zs_new) = U.t();
+    D.row(zs_old) = -U.t();
+    D.col(zs_new) += U;
+    D.col(zs_old) -= U;
+    D.diag() /= 2;
+    
+    return D;
+}
+
+
+template<typename Func>
+double sym_prod(Func f, const int rp, const int r, const int K) {
+    // f is a symmetric function
+    double prod_result = 1;
+    for (int y = 0; y < K; y++) {
+        prod_result *= f(r,y) * f(rp,y);
+    }
+    double temp = f(r,rp);
+    if (temp > 0) {
+        prod_result /= temp;
+    }
+    return prod_result;
+    // return prod_result / f(r,rp);
+}
+
+
+// double comp_beta_ratio_prod(
+//     const arma::mat& m, 
+//     const arma::mat& mbar, 
+//     const arma::vec& U,
+//     const arma::uvec& V, 
+//     const int zs_new, const int zs_old,
+//     const int alpha, const int beta) {
+
+//     arma::mat D = comp_blk_sums_diff_v2(U, zs_new, zs_old);
+//     arma::mat DN = comp_blk_sums_diff_v2(arma::conv_to<arma::vec>::from(V), zs_new, zs_old);
+//     arma::mat m_new = m + D;
+//     arma::mat mbar_new = mbar + DN - D;
+
+//     // A lambda, requires C++11
+//     auto f = [&](int x, int y) {
+//         return 
+//             R::beta(m_new(x, y) + alpha, mbar_new(x, y) + beta) / 
+//             R::beta(m(x, y) + alpha, mbar(x, y) + beta);
+//     };
+//     // Rcpp::Rcout << f(1,2);
+
+//     return sym_prod(f, zs_new, zs_old, m.n_cols);
+// }
+
+
+// [[Rcpp::export]]
+arma::vec comp_beta_ratio_prods(
+    const arma::mat& m, 
+    const arma::mat& mbar, 
+    const arma::vec& U,
+    const arma::uvec& V, 
+    const int zs_old,
+    const int alpha, const int beta) {
+
+    int K = m.n_cols;
+    arma::vec out(K);
+
+    for (int zs_new = 0; zs_new < K; zs_new++) {
+
+        if (zs_new == zs_old) {
+            out[zs_new] = 1;
+            continue;
+        }
+        arma::mat D = comp_blk_sums_diff_v1(U, zs_new, zs_old);
+        arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), zs_new, zs_old);
+        arma::mat m_new = m + D;
+        arma::mat mbar_new = mbar + DN - D;
+
+        // print(wrap(m));
+        // print(wrap(m_new));
+        // print(wrap(mbar));
+        // print(wrap(mbar_new));
+
+        // A lambda, requires C++11
+        auto f = [&](int x, int y) {
+            return 
+                R::beta(m_new(x, y) + alpha, mbar_new(x, y) + beta) / 
+                R::beta(m(x, y) + alpha, mbar(x, y) + beta);
+        };
+        // Rcpp::Rcout << f(1,2);
+
+        out(zs_new) = sym_prod(f, zs_new, zs_old, K);
+
+    } // zs_new
+    
+    return out;
+}
+
+
 
 // This is just a test function -- to be removed
 
@@ -288,6 +411,39 @@ List comp_blk_sums_and_sizes(arma::sp_mat At, arma::uvec z, int Kcap, bool div_d
 }
 
 
+std::pair<arma::mat, arma::mat> comp_blk_sums_and_comps(
+    const arma::sp_mat& At, const arma::uvec &z, int Kcap, bool div_diag = true) {
+    // z is a Kcap x 1 vector
+    // At is a sparse n x n matrix
+
+    int n = At.n_rows;
+    // arma::mat lambda(Kcap, Kcap, arma::fill::zeros);
+
+    arma::uvec zc = get_freq(z, Kcap); // zcounts
+
+    arma::mat lambda = comp_blk_sums(At, z, Kcap);
+    arma::umat NN = zc * zc.t() - arma::diagmat(zc);
+
+    if (div_diag) {
+        lambda.diag() /= 2; 
+        NN.diag() /= 2;     // assumes that the diagonal of At is zero, 
+                            // otherwise have to remove diag. first
+    }
+    
+    return std::make_pair(lambda, NN-lambda);
+}
+
+// // [[Rcpp::export]]
+// arma::mat test_comp_blk_sums_and_comps(std::pair<arma::mat, arma::mat> a_pair) {
+//     auto [x, y] = a_pair;
+
+//     List::create(
+//         Named("x") = x,
+//         Named["y"] = y
+//     )
+// }
+
+
 // [[Rcpp::export]]
 arma::mat beta_fun_symmat(arma::mat a, arma::mat b) {
     // Computes beta function over symmetric matrix arguments
@@ -303,7 +459,7 @@ arma::mat beta_fun_symmat(arma::mat a, arma::mat b) {
 }
 
 // [[Rcpp::export]]
-arma::mat comp_beta_matrix(arma::sp_mat& A, arma::uvec& z, const int K, double alpha, double beta) {
+arma::mat comp_beta_matrix(const arma::sp_mat& A, arma::uvec& z, const int K, double alpha, double beta) {
     List out = comp_blk_sums_and_sizes(A, z, K);
     arma::mat lambda = out["lambda"];
     arma::umat NN = out["NN"]; 
@@ -314,7 +470,7 @@ arma::mat comp_beta_matrix(arma::sp_mat& A, arma::uvec& z, const int K, double a
 
 
 
-// An illustration of how to access only the zero elements of a sparse matrix
+// An illustration of how to access only the zero elementv s of a sparse matrix
 // [[Rcpp::export]]
 void iter_over_sp_mat(arma::sp_mat At) {
     arma::sp_mat::const_iterator it     = At.begin();

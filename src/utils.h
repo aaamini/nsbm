@@ -30,7 +30,19 @@ arma::mat comp_blk_sums_diff(arma::sp_mat& A, int s, int zs_new, arma::uvec& z, 
 
 arma::mat beta_fun_symmat(arma::mat a, arma::mat b);
 
-arma::mat comp_beta_matrix(arma::sp_mat& A, arma::uvec& z, const int K, double alpha, double beta);
+arma::mat comp_beta_matrix(const arma::sp_mat& A, arma::uvec& z, const int K, double alpha, double beta);
 
+arma::mat comp_blk_sums_diff_v1(const arma::vec& U, const int zs_new, const int zs_old);
+arma::mat comp_blk_sums_diff_v2(const arma::vec& U, const int zs_new, const int zs_old);
+
+arma::vec comp_beta_ratio_prods(
+    const arma::mat& m, 
+    const arma::mat& mbar, 
+    const arma::vec& U,
+    const arma::uvec& V, 
+    const int zs_old,
+    const int alpha, const int beta);
+
+    
 void print_progress(int itr, int itr_max);                    
 #endif /* __UTILS__ */
