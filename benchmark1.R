@@ -40,6 +40,7 @@ methods[["Mult-SBM-regular"]] =  function(A) {
   hsbm::get_map_labels(z_list, burnin = burnin, consecutive = T)$labels
 }
 
+
 mtd_names = names(methods)
 
 res = do.call(rbind, lapply(seq_along(methods), function(j) {
