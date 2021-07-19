@@ -7,3 +7,5 @@ dbar = -4
 
 beta(alpha + d, beta + dbar) / beta(alpha, beta)
 comp_beta_ratio_v1(alpha, beta, d, dbar)
+
+print_smallest_double()

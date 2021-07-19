@@ -91,8 +91,8 @@ res %>%
   ) + 
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   ylab("Average NMI") + xlab("Iteration") +
-  labs(title = sprintf("n = %d, \lambda = %2.2f", n, lambda))
-ggsave(sprintf("collapsed_vs_regular_n=%d.png", n, lambda), 
+  labs(title = sprintf("n = %d,  lambda = %2.1f", n, lambda))
+ggsave(sprintf("collapsed_vs_regular_n=%d_lam=%d.png", n, round(lambda)), 
     width = 5, height = 4)
 
 # Tests 
