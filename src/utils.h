@@ -35,7 +35,15 @@ arma::mat comp_beta_matrix(const arma::sp_mat& A, arma::uvec& z, const int K, do
 arma::mat comp_blk_sums_diff_v1(const arma::vec& U, const int zs_new, const int zs_old);
 arma::mat comp_blk_sums_diff_v2(const arma::vec& U, const int zs_new, const int zs_old);
 
-arma::vec comp_beta_ratio_prods(
+arma::vec comp_beta_ratio_prods_v1(
+    const arma::mat& m, 
+    const arma::mat& mbar, 
+    const arma::vec& U,
+    const arma::uvec& V, 
+    const int zs_old,
+    const int alpha, const int beta);
+
+arma::vec comp_beta_ratio_prods_v2(
     const arma::mat& m, 
     const arma::mat& mbar, 
     const arma::vec& U,

@@ -2,6 +2,7 @@
 #include <RcppArmadillo.h>
 
 #include "sampling.h"
+#include "beta_calcs.h"
 
 using namespace Rcpp;
 
@@ -305,7 +306,7 @@ double sym_prod(Func f, const int rp, const int r, const int K) {
 
 
 // [[Rcpp::export]]
-arma::vec comp_beta_ratio_prods(
+arma::vec comp_beta_ratio_prods_v1(
     const arma::mat& m, 
     const arma::mat& mbar, 
     const arma::vec& U,
@@ -326,6 +327,7 @@ arma::vec comp_beta_ratio_prods(
         arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), zs_new, zs_old);
         arma::mat m_new = m + D;
         arma::mat mbar_new = mbar + DN - D;
+        arma::mat Dbar = DN - D;
 
         // print(wrap(m));
         // print(wrap(m_new));
@@ -334,9 +336,10 @@ arma::vec comp_beta_ratio_prods(
 
         // A lambda, requires C++11
         auto f = [&](int x, int y) {
-            return 
-                R::beta(m_new(x, y) + alpha, mbar_new(x, y) + beta) / 
-                R::beta(m(x, y) + alpha, mbar(x, y) + beta);
+            return
+                comp_beta_ratio_v1(m(x,y) + alpha, mbar(x,y) + beta, D(x,y), Dbar(x,y));
+                // R::beta(m_new(x, y) + alpha, mbar_new(x, y) + beta) / 
+                //  ( R::beta(m(x, y) + alpha, mbar(x, y) + beta) + DBL_MIN );
         };
         // Rcpp::Rcout << f(1,2);
 
@@ -347,6 +350,50 @@ arma::vec comp_beta_ratio_prods(
     return out;
 }
 
+// [[Rcpp::export]]
+arma::vec comp_beta_ratio_prods_v2(
+    const arma::mat& m, 
+    const arma::mat& mbar, 
+    const arma::vec& U,
+    const arma::uvec& V, 
+    const int zs_old,
+    const int alpha, const int beta) {
+
+    int K = m.n_cols;
+    arma::vec out(K);
+
+    for (int zs_new = 0; zs_new < K; zs_new++) {
+
+        if (zs_new == zs_old) {
+            out[zs_new] = 1;
+            continue;
+        }
+        arma::mat D = comp_blk_sums_diff_v1(U, zs_new, zs_old);
+        arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), zs_new, zs_old);
+        arma::mat m_new = m + D;
+        arma::mat mbar_new = mbar + DN - D;
+        arma::mat Dbar = DN - D;
+
+        // print(wrap(m));
+        // print(wrap(m_new));
+        // print(wrap(mbar));
+        // print(wrap(mbar_new));
+
+        // A lambda, requires C++11
+        auto f = [&](int x, int y) {
+            return
+                comp_beta_ratio_v2(m(x,y) + alpha, mbar(x,y) + beta, D(x,y), Dbar(x,y));
+                // R::beta(m_new(x, y) + alpha, mbar_new(x, y) + beta) / 
+                //  ( R::beta(m(x, y) + alpha, mbar(x, y) + beta) + DBL_MIN );
+        };
+        // Rcpp::Rcout << f(1,2);
+
+        out(zs_new) = sym_prod(f, zs_new, zs_old, K);
+
+    } // zs_new
+    
+    return out;
+}
 
 
 // This is just a test function -- to be removed

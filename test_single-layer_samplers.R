@@ -6,7 +6,7 @@ theme_set(theme_minimal())
 library(dplyr)
 
 set.seed(185)
-n = 50 # try 125
+n = 150 # try 125
 lambda = 10 # SBM average expected degree 
 K = 3
 alpha = 1
@@ -27,13 +27,18 @@ convert_cpp_label_matrix_to_list = function(zmat) {
 }
 
 methods = list()
-methods[["Mult-SBM-collaped-v1"]] = function(A) { 
-  multsbm_collapsed_gibbs_sampler(A, K, alpha = alpha, beta = beta, niter = niter)
-}
+# methods[["Mult-SBM-collaped-v1"]] = function(A) { 
+#   multsbm_collapsed_gibbs_sampler(A, K, alpha = alpha, beta = beta, niter = niter)
+# }
 
 methods[["Mult-SBM-collaped-v2"]] = function(A) {
   multsbm_collapsed_gibbs_sampler_v2(A, K, alpha = alpha, beta = beta, niter = niter)
 }
+
+methods[["Mult-SBM-collaped-v3"]] = function(A) {
+  multsbm_collapsed_gibbs_sampler_v3(A, K, alpha = alpha, beta = beta, niter = niter)
+}
+
 
 methods[["Mult-SBM-regular"]] =  function(A) {
   multsbm_gibbs_sampler_fast(A, K, alpha, beta = beta, niter = niter)
@@ -101,5 +106,5 @@ ggsave(sprintf("collapsed_vs_regular_n=%d_lam=%d.png", n, round(lambda)),
 # comp_Bet(A, z, K, alpha1, beta1)
 
 # # Speed test
-microbenchmark::microbenchmark(regular =  fit_dpsbm(A, Zcap = Zcap, niter = niter),
-                                collapsed =  fit_dpsbm_collapsed(A, Zcap = Zcap, niter = niter), times = 20)
+# microbenchmark::microbenchmark(regular =  fit_dpsbm(A, Zcap = Zcap, niter = niter),
+#                                 collapsed =  fit_dpsbm_collapsed(A, Zcap = Zcap, niter = niter), times = 20)
