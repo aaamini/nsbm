@@ -36,9 +36,10 @@ log(beta(alpha + d, beta + dbar) / beta(alpha, beta))
 comp_log_beta_ratio(alpha, beta, d, dbar)
 
 
-# bench::mark(v1 = beta(alpha + d, beta + dbar) / beta(alpha, beta),
-#             v2 = comp_beta_ratio_v1(alpha, beta, d, dbar),
-#             v3 = comp_beta_ratio_v2(alpha, beta, d, dbar))
+bench::mark(v1 = log(beta(alpha + d, beta + dbar) / beta(alpha, beta)),
+            v2 = log(comp_beta_ratio_v1(alpha, beta, d, dbar)),
+            v3 = log(comp_beta_ratio_v2(alpha, beta, d, dbar)),
+            v4 = comp_log_beta_ratio(alpha, beta, d, dbar))
 
 
             
