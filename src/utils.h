@@ -43,7 +43,7 @@ arma::vec comp_beta_ratio_prods_v1(
     const int zs_old,
     const int alpha, const int beta);
 
-arma::vec comp_beta_ratio_prods_v2(
+arma::vec comp_log_beta_ratio_sums(
     const arma::mat& m, 
     const arma::mat& mbar, 
     const arma::vec& U,

@@ -279,6 +279,16 @@ double sym_prod(Func f, const int rp, const int r, const int K) {
     // return prod_result / f(r,rp);
 }
 
+template<typename Func>
+double sym_sum(Func f, const int rp, const int r, const int K) {
+    // f is a symmetric function
+    double result = 0;
+    for (int y = 0; y < K; y++) {
+        result += f(r,y) + f(rp,y);
+    }
+    return result - f(r,rp);;
+}
+
 
 // double comp_beta_ratio_prod(
 //     const arma::mat& m, 
@@ -351,7 +361,7 @@ arma::vec comp_beta_ratio_prods_v1(
 }
 
 // [[Rcpp::export]]
-arma::vec comp_beta_ratio_prods_v2(
+arma::vec comp_log_beta_ratio_sums(
     const arma::mat& m, 
     const arma::mat& mbar, 
     const arma::vec& U,
@@ -370,8 +380,8 @@ arma::vec comp_beta_ratio_prods_v2(
         }
         arma::mat D = comp_blk_sums_diff_v1(U, zs_new, zs_old);
         arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), zs_new, zs_old);
-        arma::mat m_new = m + D;
-        arma::mat mbar_new = mbar + DN - D;
+        // arma::mat m_new = m + D;
+        // arma::mat mbar_new = mbar + DN - D;
         arma::mat Dbar = DN - D;
 
         // print(wrap(m));
@@ -382,13 +392,13 @@ arma::vec comp_beta_ratio_prods_v2(
         // A lambda, requires C++11
         auto f = [&](int x, int y) {
             return
-                comp_beta_ratio_v2(m(x,y) + alpha, mbar(x,y) + beta, D(x,y), Dbar(x,y));
+                comp_log_beta_ratio(m(x,y) + alpha, mbar(x,y) + beta, D(x,y), Dbar(x,y));
                 // R::beta(m_new(x, y) + alpha, mbar_new(x, y) + beta) / 
                 //  ( R::beta(m(x, y) + alpha, mbar(x, y) + beta) + DBL_MIN );
         };
         // Rcpp::Rcout << f(1,2);
 
-        out(zs_new) = sym_prod(f, zs_new, zs_old, K);
+        out(zs_new) = sym_sum(f, zs_new, zs_old, K);
 
     } // zs_new
     

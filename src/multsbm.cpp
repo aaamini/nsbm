@@ -201,7 +201,7 @@ arma::umat multsbm_collapsed_gibbs_sampler_v3(
 
             int zs_old = z(s);
             // prob is K x 1 vector`
-            arma::vec temp = comp_beta_ratio_prods_v2(m, mbar, U, V, zs_old, alpha, beta);
+            arma::vec temp = comp_log_beta_ratio_sums(m, mbar, U, V, zs_old, alpha, beta);
             
             
             // if (temp.has_nan()) {
@@ -214,9 +214,9 @@ arma::umat multsbm_collapsed_gibbs_sampler_v3(
             //     print(wrap(temp));
             // }
             
-            arma::vec prob = temp % pri;
+            arma::vec log_prob = temp + log(pri);
 
-            z(s) = sample_index(prob);; // update z(s) -- this the zs_new we pick
+            z(s) = sample_index(safe_exp(log_prob)); // update z(s) -- this the zs_new we pick
 
             // update m and mbar
             arma::mat D = comp_blk_sums_diff_v1(U, z(s), zs_old);
