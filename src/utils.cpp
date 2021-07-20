@@ -375,7 +375,7 @@ arma::vec comp_log_beta_ratio_sums(
     for (int zs_new = 0; zs_new < K; zs_new++) {
 
         if (zs_new == zs_old) {
-            out[zs_new] = 1;
+            out[zs_new] = 0;
             continue;
         }
         arma::mat D = comp_blk_sums_diff_v1(U, zs_new, zs_old);

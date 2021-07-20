@@ -6,7 +6,7 @@ theme_set(theme_minimal())
 library(dplyr)
 
 set.seed(185)
-n = 150 # try 125
+n = 500 # try 125
 lambda = 10 # SBM average expected degree 
 K = 3
 alpha = 1

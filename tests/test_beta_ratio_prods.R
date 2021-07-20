@@ -25,11 +25,12 @@ for (zs_new in 1:K) {
   BetProd1[zs_new] = prod(comp_beta_matrix(A, z_new-1, K, alpha, beta)/comp_beta_matrix(A, z-1, K, alpha, beta))
   # BetProd2[zs_new] = comp_beta_ratio_prod(m, mbar, U, V, zs_new-1, z[s]-1, alpha, beta)
 }
-BetProd1
-#BetProd2
-(BetProd3 = as.vector(comp_beta_ratio_prods(m, mbar, U, V,  z[s]-1, alpha, beta)))
+(logBetSums1 = log(BetProd1))
+(logBetSums3 = log(as.vector(comp_beta_ratio_prods_v1(m, mbar, U, V,  z[s]-1, alpha, beta))))
 # as.vector(comp_beta_ratio_prods_v2(m, mbar, U, V,  z[s]-1, alpha, beta)) 
-(BetProd3 - BetProd1)/BetProd1
+# abs(logBetSums3 - logBetSums1)/logBetSums1
+logBetSums3 - logBetSums1
+t(comp_log_beta_ratio_sums(m, mbar, U, V,  z[s]-1, alpha, beta))
 
 # bench::mark(
 #   min_iterations = 500,
