@@ -232,6 +232,9 @@ arma::vec sp_single_col_compress(arma::sp_mat A, int col_idx, arma::uvec z, int 
 //     return D;
 // }
 
+
+// Incremental updates
+
 // [[Rcpp::export]]
 arma::mat comp_blk_sums_diff_v1(const arma::vec& U, const int zs_new, const int zs_old) {
     // Assumes A(s,s) is zero
@@ -281,38 +284,26 @@ double sym_prod(Func f, const int rp, const int r, const int K) {
 
 template<typename Func>
 double sym_sum(Func f, const int rp, const int r, const int K) {
-    // f is a symmetric function
+    // f is a symmetric function over a K x K matrix
     double result = 0;
     for (int y = 0; y < K; y++) {
         result += f(r,y) + f(rp,y);
     }
-    return result - f(r,rp);;
+    return result - f(r,rp);
 }
 
+template<typename Func>
+double sym_sum_full(Func f, const int K) {
+    // f is a symmetric function of a K x K matrix
+    double result = 0;
+    for (int x = 0; x < K; x++) {
+        for (int y = x; y < K; y++) {
+            result += f(x,y);
+        }
+    }
+    return result;
+}
 
-// double comp_beta_ratio_prod(
-//     const arma::mat& m, 
-//     const arma::mat& mbar, 
-//     const arma::vec& U,
-//     const arma::uvec& V, 
-//     const int zs_new, const int zs_old,
-//     const int alpha, const int beta) {
-
-//     arma::mat D = comp_blk_sums_diff_v2(U, zs_new, zs_old);
-//     arma::mat DN = comp_blk_sums_diff_v2(arma::conv_to<arma::vec>::from(V), zs_new, zs_old);
-//     arma::mat m_new = m + D;
-//     arma::mat mbar_new = mbar + DN - D;
-
-//     // A lambda, requires C++11
-//     auto f = [&](int x, int y) {
-//         return 
-//             R::beta(m_new(x, y) + alpha, mbar_new(x, y) + beta) / 
-//             R::beta(m(x, y) + alpha, mbar(x, y) + beta);
-//     };
-//     // Rcpp::Rcout << f(1,2);
-
-//     return sym_prod(f, zs_new, zs_old, m.n_cols);
-// }
 
 
 // [[Rcpp::export]]
@@ -406,6 +397,71 @@ arma::vec comp_log_beta_ratio_sums(
 }
 
 
+template<typename Func>
+void print_fmat(Func f, const int K) {
+    arma::mat temp(K, K);
+    for (int x = 0; x < K; x++) {
+        for (int y = 0; y < K; y++) {
+            temp(x,y) = f(x,y);
+        }
+    }
+    print(wrap(temp));
+}
+
+// [[Rcpp::export]]
+arma::vec comp_tensor_log_beta_ratio_sums(
+    const arma::cube& q, // q_{xy}^{k} in the draft -> an L x L x K tensor
+    const arma::cube& qbar, // \bar q_{xy}^{k} in the draft
+    const arma::mat& D,
+    const arma::mat& Dbar, 
+    const int r0, // r_0 or z_j_old
+    const int alpha, const int beta) {
+
+    int K = q.n_slices;
+    int L = q.n_rows; // assuming that n_cols is the same
+    arma::vec out(K);
+
+
+    // Computing kappa
+    // A lambda, requires C++11
+    auto g = [&](int x, int y) {
+        return
+            comp_log_beta_ratio(
+                q(x,y,r0) + alpha, 
+                qbar(x,y,r0) + beta, 
+                -D(x,y), -Dbar(x,y));
+    };
+
+    double log_kappa = sym_sum_full(g, L);
+
+    // print_fmat(g, L);
+    // Rcout << log_kappa << "\n";
+     
+    for (int r = 0; r < K; r++) { // zj_new is "r" in the draft
+
+        if (r == r0) {
+            out[r] = 0;
+            continue;
+        }
+        // we are here if r != r0
+
+        // arma::mat Del = q.slice(r) - q.slice(r0) + D;
+        // arma::mat Delbar = qbar.slice(r) - qbar.slice(r0) + Dbar;
+
+        auto f = [&](int x, int y) {
+        return
+            comp_log_beta_ratio(
+                q(x,y,r) + alpha, 
+                qbar(x,y,r) + beta, 
+                D(x,y), Dbar(x,y));
+        };
+        out(r) = sym_sum_full(f, L) + log_kappa;
+    }
+
+    // out(r0) -= log_kappa;
+
+    return out;
+}
 // This is just a test function -- to be removed
 
 

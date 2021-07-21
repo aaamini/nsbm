@@ -27,10 +27,13 @@ for (zs_new in 1:K) {
 }
 (logBetSums1 = log(BetProd1))
 (logBetSums3 = log(as.vector(comp_beta_ratio_prods_v1(m, mbar, U, V,  z[s]-1, alpha, beta))))
+(logBetSums4 = as.vector(comp_log_beta_ratio_sums(m, mbar, U, V,  z[s]-1, alpha, beta)))
+logBetSums3 - logBetSums1 
+logBetSums4 - logBetSums1
+
 # as.vector(comp_beta_ratio_prods_v2(m, mbar, U, V,  z[s]-1, alpha, beta)) 
 # abs(logBetSums3 - logBetSums1)/logBetSums1
-logBetSums3 - logBetSums1
-t(comp_log_beta_ratio_sums(m, mbar, U, V,  z[s]-1, alpha, beta))
+
 
 # bench::mark(
 #   min_iterations = 500,
@@ -40,28 +43,28 @@ t(comp_log_beta_ratio_sums(m, mbar, U, V,  z[s]-1, alpha, beta))
 # )
 
 ##
-Rcpp::sourceCpp("src/multsbm.cpp", verbose = T)
-z_list = convert_cpp_label_matrix_to_list(
-  multsbm_collapsed_gibbs_sampler_v2(A, K, alpha = alpha, beta = beta, niter = niter)
-)
-library(readr)
-z = read_csv("z.csv", col_names = F)$X1
-s = 79
-z[s+1]
-U = sp_single_col_compress(A, s, z, K)
-V = get_freq(z, K)
-V[z[s+1]+1] = V[z[s+1]+1] - 1 
-U
-V
-read_csv("V.csv", col_names = F)$X1
-read_csv("U.csv", col_names = F)$X1
-
-(m = as.matrix(read_csv("m.csv", col_names = F)))
-(mbar = as.matrix(read_csv("mbar.csv", col_names = F)))
-
-out = comp_blk_sums_and_sizes(A, z, K)
-out$lambda
-out$NN - out$lambda 
+# Rcpp::sourceCpp("src/multsbm.cpp", verbose = T)
+# z_list = convert_cpp_label_matrix_to_list(
+#   multsbm_collapsed_gibbs_sampler_v2(A, K, alpha = alpha, beta = beta, niter = niter)
+# )
+# library(readr)
+# z = read_csv("z.csv", col_names = F)$X1
+# s = 79
+# z[s+1]
+# U = sp_single_col_compress(A, s, z, K)
+# V = get_freq(z, K)
+# V[z[s+1]+1] = V[z[s+1]+1] - 1 
+# U
+# V
+# read_csv("V.csv", col_names = F)$X1
+# read_csv("U.csv", col_names = F)$X1
+# 
+# (m = as.matrix(read_csv("m.csv", col_names = F)))
+# (mbar = as.matrix(read_csv("mbar.csv", col_names = F)))
+# 
+# out = comp_blk_sums_and_sizes(A, z, K)
+# out$lambda
+# out$NN - out$lambda 
 
 Rcpp::sourceCpp("src/utils.cpp", verbose = T)
 comp_beta_ratio_prods(m, mbar, U, V, z[s+1], alpha, beta)
