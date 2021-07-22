@@ -155,12 +155,15 @@ arma::umat fit_nsbm(List A,
                 //     // prob(rp) *= static_cast<double>((nn(rp) + 1)) / nn(z(s)); 
                 // }
                 // // Rcpp::Rcout << "---\n" << prob;
-                xi[j](s) = sample_index(safe_exp(log_prob)); ; // update z
-
-                arma::mat D = comp_blk_sums_diff_v1(U, xi[j](s), xi_s_j_old);
-                arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), xi[j](s), xi_s_j_old);
-                m.slice(z(j)) += D;
-                mbar.slice(z(j)) += DN - D;
+                xi[j](s) = sample_index(safe_exp(log_prob)); // update z
+                
+                // update m and mbar tensors
+                if (xi[j](s) != xi_s_j_old) {
+                    arma::mat D = comp_blk_sums_diff_v2(U, xi[j](s), xi_s_j_old);
+                    arma::mat DN = comp_blk_sums_diff_v2(arma::conv_to<arma::vec>::from(V), xi[j](s), xi_s_j_old);
+                    m.slice(z(j)) += D;
+                    mbar.slice(z(j)) += DN - D;   
+                }
 
                 // List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
                 // arma::mat  lambda = out["lambda"];

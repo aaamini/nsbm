@@ -44,13 +44,20 @@ arma::vec comp_beta_ratio_prods_v1(
     const int alpha, const int beta);
 
 arma::vec comp_log_beta_ratio_sums(
-    const arma::mat& m, 
-    const arma::mat& mbar, 
+    const arma::mat& m,
+    const arma::mat& mbar,
     const arma::vec& U,
-    const arma::uvec& V, 
+    const arma::uvec& V,
     const int zs_old,
     const int alpha, const int beta);
-
+    
+arma::vec comp_tensor_log_beta_ratio_sums(
+    const arma::cube& q,
+    const arma::cube& qbar,
+    const arma::mat& D,
+    const arma::mat& Dbar,
+    const int r0,
+    const int alpha, const int beta);
     
 void print_progress(int itr, int itr_max);                    
 #endif /* __UTILS__ */
