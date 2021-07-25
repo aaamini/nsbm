@@ -15,6 +15,33 @@ struct BetaParameters {
     BetaParameters(const double a, const double b) :alpha{a}, beta{b} {};
 };
 
+
+// template<typename T>
+// T vector_lbeta(T A, T B) {
+//     for(auto& x : vec_obj) {
+//         x = R::lbeta(x);
+//     }
+//     return vec_obj;
+// }
+
+// [[Rcpp::export]]
+arma::cube cube_lbeta(const arma::cube& A, const arma::cube& B) {
+    arma::cube result(arma::size(A));
+    for (int i = 0; i < A.n_rows; i++) {
+        for (int j = 0; j < A.n_cols; j++) {
+            for (int k = 0; k < A.n_cols; k++) {
+                result(i,j,k) = R::lbeta(A(i,j,k), B(i,j,k));
+            }
+        }
+    }
+    return result;
+}
+
+// 
+// arma::cube test_vector_lbeta(arma::cube X) {
+//     return vector_lbeta(X);
+// }
+
 class NestedSBM {
     public:
         List A;
@@ -29,6 +56,8 @@ class NestedSBM {
         arma::cube m;   // m(x,y,k)
         arma::cube mbar; // mbar(x,y,k)
         BetaParameters beta_params;
+
+        arma::vec z_log_prob_record; // for diagnostics
 
         NestedSBM(List A_, 
             // const arma::uvec z_init, 
@@ -48,6 +77,8 @@ class NestedSBM {
             mbar = arma::cube(L, L, K, arma::fill::zeros); // mbar tensor
             pi = arma::vec(K, arma::fill::ones);
             w = arma::mat(L, K, arma::fill::ones);
+
+            z_log_prob_record = arma::vec(K);
 
             for (int j=0; j < J; j++) {
                 n(j) = Rcpp::as<arma::sp_mat>(A[j]).n_rows;
@@ -123,6 +154,33 @@ class NestedSBM {
             }
         }
 
+        void update_z_element_naive(const int j) {
+            // arma::cube  m_old = m;
+            // arma::cube  mbar_old = mbar;
+            arma::vec log_prob(K, arma::fill::zeros);
+
+            // int zj_old = z(j);
+            arma::uvec xi_j_freq = get_freq(xi[j], L);
+
+            for (int r = 0; r < K; r++) {
+                z(j) = r;
+                comp_count_tensors(); // this updates "m" and "mbar" based on the current "z"
+                arma::cube temp = 
+                    cube_lbeta(m + beta_params.alpha, mbar + beta_params.beta); // - cube_lbeta(m_old + beta_params.alpha, mbar_old + beta_params.beta);
+
+                for (int k = 0; k < K; k++){
+                    log_prob(r) += arma::sum( arma::trimatu(temp.slice(k)).as_col() );
+                }
+            }
+            
+            log_prob += log(w.t() + perturb) * xi_j_freq;
+            log_prob += log(pi + perturb);
+
+            // update z(j)
+            z(j) = sample_index(safe_exp(log_prob)); 
+            comp_count_tensors();
+        }
+
         void update_xi_element(const int j, const int s) {
 
             sbm_update_labels(A[j], s, xi[j], L, 
@@ -179,6 +237,33 @@ class NestedSBM {
             );
         }
 
+        List run_gibbs_naive(const int niter) {
+            // Run full Gibbs updates for "niter" iterations and record label history
+            std::vector<std::vector<arma::uvec>> xi_hist(niter);
+            arma::umat z_hist(J, niter);
+
+            // if (init_count_tensors) 
+            comp_count_tensors();
+
+            for (int iter = 0; iter < niter; iter++) {
+                update_w();
+                update_pi();
+                for (int j = 0; j < J; j++) {
+                    for (int s = 0; s < n(j); s++) {
+                        update_xi_element(j, s);
+                    } // s
+                    update_z_element_naive(j);
+                } // j
+                xi_hist[iter] = xi;
+                z_hist.col(iter) = z + 1;
+            } // iter
+
+            return Rcpp::List::create( 
+                Rcpp::Named("z") = z_hist,
+                Rcpp::Named("xi") = xi_hist
+            );
+        }
+
     private:
         const double perturb = 1e-11;
         const double w0;
@@ -207,14 +292,17 @@ RCPP_MODULE(sbm_module) {
       .field("mbar", &NestedSBM::mbar)
       .field("w", &NestedSBM::w)
       .field("pi", &NestedSBM::pi)
+      .field("z_log_prob_record", &NestedSBM::z_log_prob_record)
       .method("comp_count_tensors", &NestedSBM::comp_count_tensors)
       .method("print", &NestedSBM::print)
       .method("update_z_element", &NestedSBM::update_z_element)
+      .method("update_z_element_naive", &NestedSBM::update_z_element_naive)
       .method("update_xi_element", &NestedSBM::update_xi_element)
       .method("set_xi_to_random_labels", &NestedSBM::set_xi_to_random_labels)
       .method("set_z_to_random_labels", &NestedSBM::set_z_to_random_labels)
       .method("get_xi_freq_over_z", &NestedSBM::get_xi_freq_over_z)
       .method("run_gibbs", &NestedSBM::run_gibbs)
+      .method("run_gibbs_naive", &NestedSBM::run_gibbs_naive)
       .method("update_w", &NestedSBM::update_w)
       .method("update_pi", &NestedSBM::update_pi)
       ;

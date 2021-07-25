@@ -486,10 +486,12 @@ void sbm_update_labels(
     z(s) = sample_index(safe_exp(log_prob)); // update z(s) -- this the zs_new we pick
 
     // update m and mbar
-    arma::mat D = comp_blk_sums_diff_v1(U, z(s), zs_old);
-    arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), z(s), zs_old);
-    m += D;
-    mbar += DN - D;
+    // if (zs_old != z(s)) {
+        arma::mat D = comp_blk_sums_diff_v1(U, z(s), zs_old);
+        arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), z(s), zs_old);
+        m += D;
+        mbar += DN - D;
+    // }
 }
 
 

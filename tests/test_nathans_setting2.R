@@ -6,8 +6,8 @@ Rcpp::sourceCpp("src/NestedSBM.cpp", verbose = T)
 setMethod("show", "Rcpp_NestedSBM", function(object) object$print())
 
 # simulation ----
-set.seed(575)
-m <- 12
+# set.seed(575)
+m <- 6
 pm1 <- cbind(c(.9, .75, .5)
              , c(.75, .6, .25)
              , c(.5, .25, .1))
@@ -46,15 +46,24 @@ for (j in seq_len(m)) {
 }
 
 z_tru = K.true
-niter = 10
+xi_tru = L.true
+niter = 20
 K = L = 10
 model = new(NestedSBM, A, K, L)
 z_init = model$z + 1
+xi_init = lapply(model$xi, function(x) x + 1)
 system.time( fitted_model <- model$run_gibbs(niter) )["elapsed"]
 # system.time( fitted_model <- model$run_gibbs_naive(niter) )["elapsed"]
 
+xi_hist = lapply(fitted_model$xi, function(xi) lapply(xi, function(x) x + 1))
+
+compute_xi_nmi = function(xi_hist) {
+  sapply(c(list(xi_init), xi_hist), function(xi) hsbm::get_slice_nmi(xi, xi_tru))
+}
+mat_to_list = function(x) lapply(seq_len(ncol(x)), function(i) x[,i])
+
 res = data.frame(iter = 1:(niter + 1), 
-                 nmi = apply(cbind(z_init, fitted_model$z), 2, function(z) nett::compute_mutual_info(z, z_tru)),
+                 nmi = compute_xi_nmi(xi_hist),
                  method = "NSBM (C++)")
 
 source("nathans_nsbm/nSBM_functions.R")
@@ -63,8 +72,14 @@ system.time(samp <- gibbs.nSBM(A, K, L, ns = niter, monitor = TRUE))["elapsed"]
 # z_init is not relevant to this, but added to make the sequence of the same size.
 res = rbind(res, data.frame(
             iter = 1:(niter + 1), 
-            nmi = apply(cbind(z_init, samp$z), 2, function(z) nett::compute_mutual_info(z, z_tru)),
+            nmi = compute_xi_nmi(lapply(1:niter, function(iter) mat_to_list(samp$xi[,,iter]))),
             method = "NSBM (Nathan's)"))
+
+model$z
+nett::compute_mutual_info(model$xi[[3]]+1, xi_tru[[3]])
+cbind(model$xi[[3]]+1, xi_tru[[3]])
+
+nett::compute_mutual_info(as.vector(model$z)+1, z_tru)
 
 res %>% 
   ggplot(aes(x = iter, y = nmi, color = method)) + 
@@ -81,5 +96,6 @@ res %>%
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   ylab("NMI") + xlab("Iteration") 
 
-ggsave("test.png", width = 6, height=5)
+ggsave("test3.png", width = 6, height=5)
+
 
