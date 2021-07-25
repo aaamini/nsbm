@@ -136,12 +136,15 @@ arma::umat multsbm_collapsed_gibbs_sampler_v2(
             arma::vec prob = temp % pri;
 
             z(s) = sample_index(prob);; // update z(s) -- this the zs_new we pick
+            
+            if (z(s) != zs_old) { // check if we need to update counts
+                // update m and mbar
+                arma::mat D = comp_blk_sums_diff_v2(U, z(s), zs_old);
+                arma::mat DN = comp_blk_sums_diff_v2(arma::conv_to<arma::vec>::from(V), z(s), zs_old);
+                m += D;
+                mbar += DN - D;                
+            }
 
-            // update m and mbar
-            arma::mat D = comp_blk_sums_diff_v1(U, z(s), zs_old);
-            arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), z(s), zs_old);
-            m += D;
-            mbar += DN - D;
             // if (iter == 5 && s > 100) {
             //     List out = comp_blk_sums_and_sizes(A, z, K);
             //     arma::mat mtemp = out["lambda"];
@@ -218,11 +221,13 @@ arma::umat multsbm_collapsed_gibbs_sampler_v3(
 
             z(s) = sample_index(safe_exp(log_prob)); // update z(s) -- this the zs_new we pick
 
-            // update m and mbar
-            arma::mat D = comp_blk_sums_diff_v1(U, z(s), zs_old);
-            arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), z(s), zs_old);
-            m += D;
-            mbar += DN - D;
+            if (z(s) != zs_old) { // check if we need to update counts
+                // update m and mbar
+                arma::mat D = comp_blk_sums_diff_v2(U, z(s), zs_old);
+                arma::mat DN = comp_blk_sums_diff_v2(arma::conv_to<arma::vec>::from(V), z(s), zs_old);
+                m += D;
+                mbar += DN - D;
+            }
             // if (iter == 5 && s > 100) {
             //     List out = comp_blk_sums_and_sizes(A, z, K);
             //     arma::mat mtemp = out["lambda"];
