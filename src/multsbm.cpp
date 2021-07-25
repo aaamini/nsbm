@@ -253,6 +253,45 @@ arma::umat multsbm_collapsed_gibbs_sampler_v3(
 }
 
 
+// [[Rcpp::export]]
+arma::umat multsbm_collapsed_gibbs_sampler_v4(
+    arma::sp_mat& A, const int K, 
+    const double alpha = 1, const double beta = 1,
+    const int niter = 10
+){
+
+    int n = A.n_rows;
+    arma::umat z_hist(n, niter, arma::fill::zeros);
+    
+    // Randomly initialize labels
+    arma::uvec z = sample_int_vec(K, n);
+    arma::uvec z_new(n, arma::fill::zeros);
+    arma::vec pri(K, arma::fill::zeros);
+
+    // initialize m and mbar
+    List out = comp_blk_sums_and_sizes(A, z, K);
+    arma::mat m = out["lambda"];
+    arma::umat NN = out["NN"];
+    arma::mat mbar = NN - m; 
+
+
+    for (int iter = 0; iter < niter; iter++) {
+        for (int s = 0; s < n; s++) {
+
+            arma::vec nn =  arma::conv_to<arma::vec>::from(get_freq(z, K));
+            pri = rdirichlet(nn + 1);
+
+            sbm_update_labels(A, s, z, K, m, mbar, pri, alpha, beta);
+            
+        }
+        z_hist.col(iter) = z;
+    }
+
+    return z_hist;    
+    
+}
+
+
 // arma::umat fit_multsbm(arma::sp_mat A, const int K, 
 //                     const double alpha = 1, const double beta = 1,
 //                     const int niter = 100,

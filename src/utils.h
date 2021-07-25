@@ -59,6 +59,15 @@ arma::vec comp_tensor_log_beta_ratio_sums(
     const int r0, // r_0 = old value of z[j]
     const int alpha, const int beta);
 
+void sbm_update_labels(
+    const arma::sp_mat& A,
+    const int s,
+    arma::uvec& z,
+    const int K,
+    arma::mat& m, 
+    arma::mat& mbar, 
+    const arma::vec& pri, 
+    const double alpha, const double beta);
     
 void print_progress(int itr, int itr_max);                    
 #endif /* __UTILS__ */

@@ -78,7 +78,7 @@ res %>%
     # legend.text = ggplot2::element_text(size=18),
   ) + 
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
-  ylab("NMI") + xlab("Inner Iteration") 
+  ylab("NMI") + xlab("Iteration") 
 
-
+ggsave("test.png", width = 6, height=5)
 

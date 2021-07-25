@@ -7,35 +7,6 @@
 
 using namespace Rcpp;
 
-void sbm_update_labels(
-    const arma::sp_mat& A,
-    const int s,
-    arma::uvec& z,
-    const int K,
-    arma::mat& m, 
-    arma::mat& mbar, 
-    const arma::vec& pri, 
-    const double alpha, const double beta) {
-
-    arma::vec U = sp_single_col_compress(A, s, z, K);
-    arma::uvec V = get_freq(z, K);
-    V(z(s))--;
-
-    int zs_old = z(s);
-    // prob is K x 1 vector`
-    arma::vec temp = comp_log_beta_ratio_sums(m, mbar, U, V, zs_old, alpha, beta);
-    
-    arma::vec log_prob = temp + log(pri);
-
-    z(s) = sample_index(safe_exp(log_prob)); // update z(s) -- this the zs_new we pick
-
-    // update m and mbar
-    arma::mat D = comp_blk_sums_diff_v1(U, z(s), zs_old);
-    arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), z(s), zs_old);
-    m += D;
-    mbar += DN - D;
-}
-
 struct BetaParameters {
     double alpha;
     double beta;
