@@ -14,6 +14,9 @@ arma::vec rbeta_vec(arma::vec alpha, arma::vec beta);
 
 
 arma::vec gem_gibbs_update(const arma::uvec z, const int Zcap, const double concent_param);
+arma::vec gem_gibbs_update_v2(
+    const arma::uvec count1,
+    const double concent_param);
 arma::vec stick_break(arma::vec x);
 
 int find_tunc(arma::vec beta, double threshold);

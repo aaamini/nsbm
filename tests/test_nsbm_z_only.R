@@ -6,15 +6,15 @@ Rcpp::sourceCpp("src/nsbm.cpp", verbose = T)
 n = 30
 K = 4
 L = 5
-J = 25
+J = 10
 alpha = 1
 beta = 1
-niter = 5
+niter = 10
 lambda = 7
 
 # data
 z_tru = sample(1:K, J, replace = T)
-eta = lapply(1:K, function(i) nett::gen_rand_conn(n, L, lambda = 7))
+eta = lapply(1:K, function(i) nett::gen_rand_conn(n, L, lambda = lambda))
 xi_tru = A = vector("list", J)
 for (j in 1:J) {
   xi_tru[[j]] = sample(L, n, replace = T, )
@@ -102,7 +102,7 @@ z_list = nsbm_z_update_R(A, z_init, xi_tru, K, L, alpha, beta, niter = niter)
 
 res = data.frame(inner_iter = 1:(niter*J + 1), 
                  nmi = sapply(z_list, function(z) nett::compute_mutual_info(z, z_tru)),
-                 method = "R")
+                 method = "z-update (R)")
 
 
 
@@ -110,11 +110,20 @@ xi_tru_0idx = lapply(xi_tru, function(xi) xi-1)
 # m = mbar = array(0, dim = c(L,L,K))
 # comp_count_tensors(A, z_tru-1, xi_tru_0idx, L, m, mbar)
 
-z_mat_cpp = nsbm_z_update_cpp(A, xi_tru_0idx, z_init-1, L = L, K = K, niter = 5)
+z_mat_cpp = run_nsbm_z_update_only_cpp(A, xi_tru_0idx, z_init-1, L = L, K = K, niter = niter)
 res =  rbind(res, 
              data.frame(inner_iter = 1:(niter*J + 1), 
                         nmi = apply(cbind(z_init, z_mat_cpp), 2, function(z) nett::compute_mutual_info(z, z_tru)),
-                        method = "C++"))
+                        method = "z-update (C++)"))
+
+# z_mat_nsbm = fit_nsbm(A, z_init-1, L = L, K = K, niter = niter)
+out = fit_nsbm(A, z_init-1, L = L, K = K, niter = niter)
+z_mat_nsbm = out$z
+res =  rbind(res, 
+             data.frame(inner_iter = 1:(niter*J + 1), 
+                        nmi = apply(cbind(z_init, z_mat_nsbm), 2, function(z) nett::compute_mutual_info(z, z_tru)),
+                        method = "NSBM (C++)"))
+
 
 library(ggplot2)
 library(dplyr)
@@ -131,28 +140,9 @@ res %>%
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   ylab("NMI") + xlab("Inner Iteration") 
 
-ggsave(sprintf("nsbm_z_update_test_n=%d_J=%d.png", n, round(lambda)), 
-       width = 5, height = 4)
-# q = out$m
-# qbar = out$mbar
-# q_R = simplify2array(comp_m_tensor(A, z_tru, xi_tru, K,  L))
-# qbar_R = simplify2array(comp_mbar_tensor(A, z_tru, xi_tru, K,  L))
-# 
-# sum(abs(q-q_R))
-# sum(abs(qbar - qbar_R))
+# ggsave(sprintf("figs/nsbm_z_update_test_n=%d_J=%d_lam=%d.png", n, J, round(lambda)), 
+      #  width = 5, height = 4)
 
 
-# Rcpp::sourceCpp("src/utils.cpp", verbose = T)
-# 
-# log_prob_cpp = as.vector(
-#   comp_tensor_log_beta_ratio_sums(q, qbar, D, Dbar, r0-1, alpha, beta)
-# )
-
-#remove_max = function(x) x - max(x)
-#rbind(remove_max(log_prob_R), remove_max(log_prob_cpp))
-
-
-# rbind(log_prob_R, log_prob_cpp)
-# cat(sprintf('Error = %e', sum(abs(log_prob_R - log_prob_cpp))))
-# 
-# c(r0, which.max(log_prob_cpp))
+# bench::mark(v1 = nsbm_z_update_R(A, z_init, xi_tru, K, L, alpha, beta, niter = niter),
+            # v2 = nsbm_z_update_cpp(A, xi_tru_0idx, z_init-1, L = L, K = K, niter = niter), check = F)

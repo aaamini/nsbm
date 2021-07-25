@@ -414,7 +414,7 @@ arma::vec comp_tensor_log_beta_ratio_sums(
     const arma::cube& qbar, // \bar q_{xy}^{k} in the draft
     const arma::mat& D,
     const arma::mat& Dbar, 
-    const int r0, // r_0 or z_j_old
+    const int r0, //  r_0 = old value of z(j)
     const int alpha, const int beta) {
 
     int K = q.n_slices;
@@ -437,7 +437,7 @@ arma::vec comp_tensor_log_beta_ratio_sums(
     // print_fmat(g, L);
     // Rcout << log_kappa << "\n";
      
-    for (int r = 0; r < K; r++) { // zj_new is "r" in the draft
+    for (int r = 0; r < K; r++) { // r = potential new value of z(j)
 
         if (r == r0) {
             out[r] = 0;

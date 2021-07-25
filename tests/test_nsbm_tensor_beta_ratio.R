@@ -52,8 +52,9 @@ upper_tri_sum2 = function(X) {
 }
 
 ## tests
-m_tensor = comp_m_tensor(A, z_tru, xi_tru, K,  L)
-mbar_tensor = comp_mbar_tensor(A, z_tru, xi_tru, K,  L)
+z_prev = sample(1:K, J, replace = T) # z_tru
+m_tensor = comp_m_tensor(A, z_prev, xi_tru, K,  L)
+mbar_tensor = comp_mbar_tensor(A, z_prev, xi_tru, K,  L)
 q = simplify2array(m_tensor) # turn list into 3d array
 qbar = simplify2array(mbar_tensor)
 
@@ -62,8 +63,8 @@ D = out$lambda
 Dbar = out$NN - D
 
 log_prob_R = rep(0, K)
-r0 = z_tru[j]
-z = z_tru
+r0 = z_prev[j]
+z = z_prev
 for (r in 1:K) {
   z[j] = r
   q_new = simplify2array(comp_m_tensor(A, z, xi_tru, K,  L))
@@ -88,3 +89,5 @@ log_prob_cpp = as.vector(
 
 rbind(log_prob_R, log_prob_cpp)
 cat(sprintf('Error = %e', sum(abs(log_prob_R - log_prob_cpp))))
+
+c(r0, which.max(log_prob_cpp))

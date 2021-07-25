@@ -39,6 +39,10 @@ methods[["Mult-SBM-collaped-v3"]] = function(A) {
   multsbm_collapsed_gibbs_sampler_v3(A, K, alpha = alpha, beta = beta, niter = niter)
 }
 
+methods[["Mult-SBM-collaped-v4"]] = function(A) {
+  multsbm_collapsed_gibbs_sampler_v4(A, K, alpha = alpha, beta = beta, niter = niter)
+}
+
 
 methods[["Mult-SBM-regular"]] =  function(A) {
   multsbm_gibbs_sampler_fast(A, K, alpha, beta = beta, niter = niter)
