@@ -57,7 +57,10 @@ class NestedSBM {
         arma::cube mbar; // mbar(x,y,k)
         BetaParameters beta_params;
 
-        arma::vec z_log_prob_record; // for diagnostics
+        double w0;
+        double pi0;
+
+        // arma::vec z_log_prob_record; // for diagnostics
 
         NestedSBM(List A_, 
             // const arma::uvec z_init, 
@@ -78,7 +81,7 @@ class NestedSBM {
             pi = arma::vec(K, arma::fill::ones);
             w = arma::mat(L, K, arma::fill::ones);
 
-            z_log_prob_record = arma::vec(K);
+            // z_log_prob_record = arma::vec(K);
 
             for (int j=0; j < J; j++) {
                 n(j) = Rcpp::as<arma::sp_mat>(A[j]).n_rows;
@@ -140,6 +143,9 @@ class NestedSBM {
                 m, mbar, D, Dbar, zj_old, beta_params.alpha, beta_params.beta
             );
             log_prob += log(w.t() + perturb) * xi_j_freq;
+            //for (int ll = 0; ll < L; ll++) { log_prob += log(w[ll, z(j)] + perturb) * xi_j_freq[ll]; }
+
+            
             log_prob += log(pi + perturb);
 
             // update z(j)
@@ -152,6 +158,13 @@ class NestedSBM {
                 mbar.slice(z(j)) += Dbar;
                 mbar.slice(zj_old) -= Dbar;
             }
+        }
+
+        void update_xi_element(const int j, const int s) {
+
+            sbm_update_labels(A[j], s, xi[j], L, 
+                        m.slice(z(j)), mbar.slice(z(j)), 
+                        w.col(z(j)), beta_params.alpha, beta_params.beta);
         }
 
         void update_z_element_naive(const int j) {
@@ -181,12 +194,27 @@ class NestedSBM {
             comp_count_tensors();
         }
 
-        void update_xi_element(const int j, const int s) {
 
-            sbm_update_labels(A[j], s, xi[j], L, 
-                        m.slice(z(j)), mbar.slice(z(j)), 
-                        w.col(z(j)), beta_params.alpha, beta_params.beta);
-        }
+        // void update_xi_element_naive(const int j, const int s) {
+        //     arma::vec log_prob(L, arma::fill::zeros);
+
+        //     for (int ll = 0; ll < L; ll++) {
+        //         xi[j](s) = ll;
+        //         comp_count_tensors(); // this updates "m" and "mbar" based on the current "z"
+        //         arma::cube temp = 
+        //             cube_lbeta(m + beta_params.alpha, mbar + beta_params.beta); // - cube_lbeta(m_old + beta_params.alpha, mbar_old + beta_params.beta);
+
+        //         for (int k = 0; k < K; k++){
+        //             log_prob(ll) += arma::sum( arma::trimatu(temp.slice(k)).as_col() );
+        //         }
+        //     }
+            
+        //     log_prob += log(w.col(z(j)) + perturb);
+
+        //     // update xi[j](s)
+        //     xi[j](s) = sample_index(safe_exp(log_prob)); 
+        //     comp_count_tensors();
+        // }
 
         arma::uvec get_xi_freq_over_z(const int k) {
             arma::uvec count1(L, arma::fill::zeros);
@@ -266,8 +294,6 @@ class NestedSBM {
 
     private:
         const double perturb = 1e-11;
-        const double w0;
-        const double pi0;
 };
 
 
@@ -292,7 +318,8 @@ RCPP_MODULE(sbm_module) {
       .field("mbar", &NestedSBM::mbar)
       .field("w", &NestedSBM::w)
       .field("pi", &NestedSBM::pi)
-      .field("z_log_prob_record", &NestedSBM::z_log_prob_record)
+      .field("w0", &NestedSBM::w0)
+      .field("pi0", &NestedSBM::pi0)
       .method("comp_count_tensors", &NestedSBM::comp_count_tensors)
       .method("print", &NestedSBM::print)
       .method("update_z_element", &NestedSBM::update_z_element)

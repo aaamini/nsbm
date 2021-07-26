@@ -106,6 +106,8 @@ gibbs.nSBM <- function(A, K = 35, L = 55, ns, monitor = FALSE) {
   J <- length(A)
   n <- sapply(A, nrow)
   
+  ns = ns + 1 # the first element is the initial value
+  
   # pre-compute neighborhood for i = 1, ..., n_j and j = 1, ..., J
   neighbors <- lapply(A, function(A_j) apply(A_j, 1, function(u) which(u > 0)))
   
