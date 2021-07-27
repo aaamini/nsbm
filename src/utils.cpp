@@ -421,6 +421,14 @@ arma::vec comp_tensor_log_beta_ratio_sums(
     int L = q.n_rows; // assuming that n_cols is the same
     arma::vec out(K);
 
+    if (arma::any(arma::vectorise(q) < 0)) {
+        Rcout << "m has negative values \n";
+        Rcpp::print(wrap(q));
+    }
+    if (arma::any(arma::vectorise(qbar) < 0)) {
+        Rcout << "mbar has negative values \n";
+        Rcpp::print(wrap(qbar));
+    }
 
     // Computing kappa
     // A lambda, requires C++11

@@ -187,6 +187,19 @@ arma::vec gem_gibbs_update_v2(const arma::uvec count1,
   );
 }
 
+// [[Rcpp::export]]
+arma::vec gem_gibbs_update_v3(const arma::uvec count1,
+                        const double concent_param) {
+  // arma::uvec count1 = get_freq(z, Zcap);
+  // arma::uvec count2 = get_up_freq(count1);
+
+  arma::vec temp = 
+    rbeta_vec(arma::conv_to<arma::vec>::from(count1) + 1, 
+             arma::conv_to<arma::vec>::from(get_up_freq(count1)) + concent_param);
+  temp(temp.n_elem-1) = 1; // set the last element to 1
+  return temp;
+}
+
 
 
 // int sample_klabels(arma::mat a, arma::mat b, 

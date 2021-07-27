@@ -1,7 +1,5 @@
-add_one_to_xi = function(xi) lapply(xi, function(x) x + 1)
-sub_one_from_xi = function(xi) lapply(xi, function(x) x - 1)
-
-
+# add_one_to_xi = function(xi) lapply(xi, function(x) x + 1)
+# sub_one_from_xi = function(xi) lapply(xi, function(x) x - 1)
 
 mat_to_list = function(x) lapply(seq_len(ncol(x)), function(i) x[,i])
 
@@ -54,10 +52,8 @@ splice_sampler <- function(A, K = 35, L = 55, ns, monitor = FALSE) {
   model$pi = pi_k[,1]
   model$w0 = w_0[1]
   model$pi0 = pi_0[1]
+  model$comp_count_tensors() # initialize the count tensors
 
-  # m_hl <- lapply(seq_len(J), function(j) count_edges(A[[j]], xi[, j, 1], L))
-  # log.post[1] <- ll.SBM(m_hl)
-  
   # MCMC
   for (q in 2:ns) {
     
@@ -65,75 +61,28 @@ splice_sampler <- function(A, K = 35, L = 55, ns, monitor = FALSE) {
     
     # sample z (class assignments) ----
     z[, q] <-  z[, q-1]
-    
-    # p(z | pi) independent of j so repeat over J rows
-    # log.pz <- matrix(log(pi_k[, q-1]), J, K, byrow = TRUE) # J x K
-    
     for (j in seq_len(J)) {
-      model$update_z_element_naive(j-1)
-      z[j, q] = model$z[j] + 1
-      # # add p(A^{j' : z_j' = k} | z, xi) and p(xi_j | w_k)
-      # log.pz[j, ] <- log.pz[j, ] +
-      #   sapply(seq_len(K), function(z_j) {
-      #     sum(sapply(seq_len(K), function(k) {
-      #       ll.SBM(m_hl[replace(z[, q], j, z_j) == k])
-      #     }))}) +
-      #   colSums(log(w_k[xi[seq_len(n[j]), j, q-1], , q-1]))
-      
-      # # sample from J different multinomials of length K
-      # z[j, q] <- which(rmultinom(1, 1, exp(log.pz[j, ] - max(log.pz[j, ]))) > 0)
+      # model$update_z_element_naive(j-1)
+      model$update_z_element(j-1)
+      z[j, q] = model$z[j] + 1 
     }
     
     # # update number of networks in class k
     m_k <- tabulate(z[, q], nbins = K)
     
     # sample xi (cluster assignments) ----
-    # log.pxi <- array(0, dim = c(L, max(n), J))
     xi[, , q] <- xi[, , q-1]
 
     for (k in which(m_k > 0)) {
     # cluster_update <- mclapply(which(m_k > 0), mc.cores = n.cores, function(k) { # parallel over k
       z_k <- which(z[, q] == k)
-      
-      # p(xi | w_lk) independent of j so repeat over L rows
-      # log.pxi[, , z_k] <- log(w_k[, k, q-1]) # L x n_j
-      
       for (j in z_k) {
         for (i in seq_len(n[j])) {
           model$update_xi_element(j-1, i-1)
           xi[i, j, q] = model$xi[[j]][i] +1
-          # m_j <- update_edges(m_hl, neighbors, xi[seq_len(n[j]), , q], j, i)
-          
-          # log.pxi[, i, j] <- log.pxi[, i, j] +
-          #   sapply(m_j, function(m_jl) { # p(A^{j' : z_j' = k} | z, xi)
-          #     ll.SBM(replace(m_hl, j, list(m_jl))[z_k])
-          #   })
-          
-          # # sample multinomial of length L
-          # xi[i, j, q] <- which(rmultinom(1, 1
-          #                                , exp(log.pxi[, i, j] - max(log.pxi[, i, j])))
-          #                      > 0)
-          
-          # # update edge and non-edge counts for new xi
-          # m_hl[[j]] <- m_j[[xi[i, j, q]]]
         } # end i loop
       } # end j loop
-    #   return(list(log.pxi, xi[, , q], m_hl))
-    # })
-    }
-       # end k loop
-    
-    # combine/retrieve results of mclapply
-    # log.pxi <- Reduce("+", lapply(cluster_update, "[[", 1))
-    
-    # names(cluster_update) <- which(m_k > 0)
-    # for (k in which(m_k > 0)) {
-    #   clust_k <- cluster_update[[toString(k)]]
-    #   for (j in which(z[, q] == k)) {
-    #     xi[, j, q] <- clust_k[[2]][, j]
-    #     m_hl[[j]] <- clust_k[[3]][[j]]
-    #   }
-    # }
+    } # end k loop
     
     # sample pi_k ----
     u_k <- c(rbeta(K-1, 1 + m_k[-K]

@@ -6,13 +6,13 @@ Rcpp::sourceCpp("src/NestedSBM.cpp", verbose = T)
 setMethod("show", "Rcpp_NestedSBM", function(object) object$print())
 
 # simulation ----
-set.seed(575)
+# set.seed(575)
 niter = 10
 K = L = 10
 n = 40
-m = 60
+m = 6
 
-source("nathans_nsbm/data_gen.R")
+source("R/data_gen.R")
 # model = new(NestedSBM, A, K, L)
 # z_init = model$z + 1
 # # system.time( fitted_model <- model$run_gibbs(niter) )["elapsed"]
@@ -22,12 +22,12 @@ source("nathans_nsbm/data_gen.R")
 #                  nmi = apply(cbind(z_init, fitted_model$z), 2, function(z) nett::compute_mutual_info(z, z_tru)),
 #                  method = "NSBM (C++)")
 
-source("nathans_nsbm/nSBM_functions.R")
-source("nathans_nsbm/spliced_sampler.R")
+source("R/nSBM_functions.R")
+source("R/splice_sampler.R")
 
-nreps = 32
-# res = do.call(rbind, lapply(1:nreps, function(rep) {
-res = do.call(rbind, mclapply(1:nreps, function(rep) {
+nreps = 2
+res = do.call(rbind, lapply(1:nreps, function(rep) {
+# res = do.call(rbind, mclapply(1:nreps, function(rep) {
   out = generate_nathans_data(n = n, m = m)
   A = out$A
   z_tru = out$z
@@ -49,10 +49,21 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
     iter = 1:(niter + 1), 
     nmi = apply(samp$z, 2, function(z) nett::compute_mutual_info(z, z_tru)),
     method = "Splice"))
-# }))
-}, mc.cores = 32))
+  
+  dt = system.time({
+    model =  new(NestedSBM, A, K, L)
+    fitted_model <- model$run_gibbs(niter) 
+  })["elapsed"]
+  res = rbind(res, data.frame(
+    rep = rep,
+    dt = dt,
+    iter = 1:(niter + 1), 
+    nmi = apply(fitted_model$z, 2, function(z) nett::compute_mutual_info(z, z_tru)),
+    method = "Pure C++"))
+}))
+# }, mc.cores = 32))
 
-res %>% 
+p = res %>% 
   group_by(iter, method) %>% summarise(nmi = mean(nmi)) %>% 
   ggplot(aes(x = iter, y = nmi, color = method)) + 
   # geom_line(aes(size = method), alpha = 0.5) +
@@ -68,7 +79,8 @@ res %>%
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   ylab("NMI") + xlab("Iteration") + labs(title = sprintf("m = %d, n = %d, nreps = %d", m, n, nreps))
 
-ggsave("test_splice2.png", width = 6, height=5)
+p
+# ggsave("test_splice3.png", width = 6, height=5)
 
 res %>% 
   group_by(method) %>% summarise(dt = mean(dt)) 

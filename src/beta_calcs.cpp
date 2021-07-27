@@ -5,6 +5,7 @@
 // #include <Rcpp/Benchmark/Timer.h>
 
 #include <boost/math/special_functions/factorials.hpp>
+#include <boost/format.hpp> 
 
 // #include "sampling.h" 
 // #include "utils.h" 
@@ -43,6 +44,7 @@ double comp_log_gamma_ratio(const double x, const int d) {
     // computes log [Gamma(x + d) / Gamma(x)]
     if (d == 0) return 0;
     if (d < 0) return -comp_log_gamma_ratio(x+d, -d);
+    if (x <= 0) throw std::invalid_argument(str(boost::format("Invalid x value of %1% for Gamma ratio.") % x));
 
     double result = 0;
     for (double i = x; i < x+d; i++) {
@@ -55,6 +57,11 @@ double comp_log_gamma_ratio(const double x, const int d) {
 double comp_log_beta_ratio(
     const double alpha, const double beta, 
     const int d, const int dbar) {
+
+    if (alpha <= 0) throw std::invalid_argument(str(boost::format("Invalid alpha value of %1% for Beta ratio.") % alpha));
+    if (beta <= 0) throw std::invalid_argument(str(boost::format("Invalid beta value of %1% for Beta ratio.") % beta));
+    if (alpha + d <= 0) throw std::invalid_argument(str(boost::format("Invalid alpha + d value of %1% for Beta ratio.") % (alpha + d)));
+    if (beta + dbar <= 0) throw std::invalid_argument(str(boost::format("Invalid beta + dbar value of %1% for Beta ratio.") % (beta + dbar)));
         
     return comp_log_gamma_ratio(alpha, d) + 
         comp_log_gamma_ratio(beta, dbar) -

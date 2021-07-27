@@ -53,10 +53,16 @@ class NestedSBM {
         std::vector<arma::uvec> xi; // xi[j](s) = label of nodes s in network j
         arma::vec pi;   // the prior on "z"
         arma::mat w;    // the prior on "xi"
+        arma::vec u;
+        arma::mat v;
+        
         arma::cube m;   // m(x,y,k)
         arma::cube mbar; // mbar(x,y,k)
-        BetaParameters beta_params;
 
+        arma::uvec z_freq;  // In the current implementation, these two parameters only hold correct value after update_w and upate_pi
+        arma::umat xi_freq_over_z; // TODO: make them hold correct valu after every label update
+        
+        BetaParameters beta_params;
         double w0;
         double pi0;
 
@@ -67,8 +73,8 @@ class NestedSBM {
             const int K, const int L, 
             const double alpha_eta = 1, 
             const double beta_eta = 1,
-            const double w0 = 1, 
-            const double pi0 = 1) : K{K}, L{L}, w0{w0}, pi0{pi0} {
+            const double w0_init = 0, 
+            const double pi0_init = 0) : K{K}, L{L}, w0{w0_init}, pi0{pi0_init} {
 
             // initialize and allocate variables
             A = A_;
@@ -78,8 +84,8 @@ class NestedSBM {
             // z = arma::uvec(J);
             m = arma::cube(L, L, K, arma::fill::zeros); // m tensor
             mbar = arma::cube(L, L, K, arma::fill::zeros); // mbar tensor
-            pi = arma::vec(K, arma::fill::ones);
-            w = arma::mat(L, K, arma::fill::ones);
+            // pi = arma::vec(K, arma::fill::ones);
+             w = arma::mat(L, K, arma::fill::ones);
 
             // z_log_prob_record = arma::vec(K);
 
@@ -92,6 +98,31 @@ class NestedSBM {
             beta_params.beta = beta_eta;
             set_xi_to_random_labels();
             set_z_to_random_labels();
+
+            z_freq = get_freq(z, K);
+            xi_freq_over_z = arma::umat(L, K, arma::fill::ones);
+            for (int k = 0; k < K; k++) {
+                xi_freq_over_z.col(k) = get_xi_freq_over_z(k);
+            }
+
+            if (pi0 == 0) pi0 = 1. / (J * log(J));
+            if (w0 == 0)  {
+                int n_min = arma::min(n);
+                w0 = 1. / (n_min * log(n_min));
+            }
+
+            arma::vec u = arma::vec(K, arma::fill::ones);
+            u(arma::span(0,K-2)) *= 0.5;
+            
+            pi = stick_break(u);
+
+            v = arma::mat(L, K, arma::fill::ones);
+            w = arma::mat(L, K, arma::fill::ones);
+            v.rows(0,K-2) *= 1. /(1+w0);
+            // Rcpp::print(wrap(v));
+            for (int k = 0; k < K; k++) {
+                w.col(k) = stick_break(v.col(k));
+            }
         }
 
         void print() {
@@ -130,6 +161,29 @@ class NestedSBM {
             z = sample_int_vec(K, J);
         }
 
+        arma::uvec get_xi_freq_over_z(const int k) {
+            arma::uvec count1(L, arma::fill::zeros);
+            for (int j = 0; j < xi.size(); j++) {
+                if (z(j) == k) {
+                    count1 += get_freq(xi[j], L);
+                }    
+            }      
+            return count1;      
+        }
+
+        void update_w(){
+            for (int k = 0; k < K; k++) {
+                xi_freq_over_z.col(k) = get_xi_freq_over_z(k);
+                w.col(k) = stick_break( gem_gibbs_update_v3(xi_freq_over_z.col(k), w0) );
+            }        
+        }
+
+        void update_pi() {
+            // pi = stick_break( gem_gibbs_update_v2(get_freq(z, K), pi0) );
+            z_freq = get_freq(z, K);
+            pi = stick_break( gem_gibbs_update_v3(z_freq, pi0) );
+        }
+
         void update_z_element(const int j) {
             int zj_old = z(j);
 
@@ -139,6 +193,10 @@ class NestedSBM {
             arma::mat Dbar = Rcpp::as<arma::umat>(out["NN"]) - D;
 
             arma::uvec xi_j_freq = get_freq(xi[j], L);
+            
+            // Rcpp::print(wrap(m.slice(zj_old)-D));
+            // Rcpp::print(wrap(mbar.slice(zj_old)-Dbar));
+
             arma::vec log_prob = comp_tensor_log_beta_ratio_sums(
                 m, mbar, D, Dbar, zj_old, beta_params.alpha, beta_params.beta
             );
@@ -194,6 +252,88 @@ class NestedSBM {
             comp_count_tensors();
         }
 
+        // List run_gibbs(const int niter = 100, const bool init_count_tensors = true) {
+
+        List run_gibbs(const int niter) {
+            // Run full Gibbs updates for "niter" iterations and record label history
+            std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
+            arma::umat z_hist(J, niter+1);
+
+            xi_hist[0] = xi;
+            z_hist.col(0) = z + 1;
+            // if (init_count_tensors) 
+            comp_count_tensors();
+
+            for (int iter = 0; iter < niter; iter++) {           
+
+                for (int j = 0; j < J; j++) {
+                    update_z_element(j);
+                    // for (int s = 0; s < n(j); s++) {
+                    //     update_xi_element(j, s);
+                    // } // s
+                } // j
+
+                z_freq = get_freq(z, K);
+                arma::uvec idx = arma::find(z_freq > 0);
+                for (auto k : idx) {
+                    arma::uvec z_cluster_k = arma::find(z == k);
+                    for (auto j : z_cluster_k) {
+                        for (int s = 0; s < n(j); s++) {
+                            update_xi_element(j, s);
+                        } // s                        
+                    }
+                }
+
+                update_pi();
+                update_w();
+
+                // Rcpp::print(wrap(z.t()));
+                xi_hist[iter+1] = xi;
+                z_hist.col(iter+1) = z + 1;
+            } // iter
+
+            return Rcpp::List::create( 
+                Rcpp::Named("z") = z_hist,
+                Rcpp::Named("xi") = xi_hist
+            );
+        }
+
+        void update_pi0(){
+
+        }
+
+        void update_w0() {
+            
+        }
+
+        List run_gibbs_naive(const int niter) {
+            // Run full Gibbs updates for "niter" iterations and record label history
+            std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
+            arma::umat z_hist(J, niter+1);
+
+            xi_hist[0] = xi;
+            z_hist.col(0) = z + 1;
+            // if (init_count_tensors) 
+            comp_count_tensors();
+
+            for (int iter = 0; iter < niter; iter++) {
+                update_w();
+                update_pi();
+                for (int j = 0; j < J; j++) {
+                    for (int s = 0; s < n(j); s++) {
+                        update_xi_element(j, s);
+                    } // s
+                    update_z_element_naive(j);
+                } // j
+                xi_hist[iter+1] = xi;
+                z_hist.col(iter+1) = z + 1;
+            } // iter
+
+            return Rcpp::List::create( 
+                Rcpp::Named("z") = z_hist,
+                Rcpp::Named("xi") = xi_hist
+            );
+        }
 
         // void update_xi_element_naive(const int j, const int s) {
         //     arma::vec log_prob(L, arma::fill::zeros);
@@ -215,82 +355,6 @@ class NestedSBM {
         //     xi[j](s) = sample_index(safe_exp(log_prob)); 
         //     comp_count_tensors();
         // }
-
-        arma::uvec get_xi_freq_over_z(const int k) {
-            arma::uvec count1(L, arma::fill::zeros);
-            for (int j = 0; j < xi.size(); j++) {
-                if (z(j) == k) {
-                    count1 += get_freq(xi[j], L);
-                }    
-            }      
-            return count1;      
-        }
-
-        void update_w(){
-            for (int k = 0; k < K; k++) {
-                w.col(k) = stick_break( gem_gibbs_update_v2(get_xi_freq_over_z(k), w0) );
-            }        
-        }
-
-        void update_pi() {
-            pi = stick_break( gem_gibbs_update_v2(get_freq(z, K), pi0) );
-        }
-
-        // List run_gibbs(const int niter = 100, const bool init_count_tensors = true) {
-
-        List run_gibbs(const int niter) {
-            // Run full Gibbs updates for "niter" iterations and record label history
-            std::vector<std::vector<arma::uvec>> xi_hist(niter);
-            arma::umat z_hist(J, niter);
-
-            // if (init_count_tensors) 
-            comp_count_tensors();
-
-            for (int iter = 0; iter < niter; iter++) {
-                update_w();
-                update_pi();
-                for (int j = 0; j < J; j++) {
-                    for (int s = 0; s < n(j); s++) {
-                        update_xi_element(j, s);
-                    } // s
-                    update_z_element(j);
-                } // j
-                xi_hist[iter] = xi;
-                z_hist.col(iter) = z + 1;
-            } // iter
-
-            return Rcpp::List::create( 
-                Rcpp::Named("z") = z_hist,
-                Rcpp::Named("xi") = xi_hist
-            );
-        }
-
-        List run_gibbs_naive(const int niter) {
-            // Run full Gibbs updates for "niter" iterations and record label history
-            std::vector<std::vector<arma::uvec>> xi_hist(niter);
-            arma::umat z_hist(J, niter);
-
-            // if (init_count_tensors) 
-            comp_count_tensors();
-
-            for (int iter = 0; iter < niter; iter++) {
-                update_w();
-                update_pi();
-                for (int j = 0; j < J; j++) {
-                    for (int s = 0; s < n(j); s++) {
-                        update_xi_element(j, s);
-                    } // s
-                    update_z_element_naive(j);
-                } // j
-                xi_hist[iter] = xi;
-                z_hist.col(iter) = z + 1;
-            } // iter
-
-            return Rcpp::List::create( 
-                Rcpp::Named("z") = z_hist,
-                Rcpp::Named("xi") = xi_hist
-            );
-        }
 
     private:
         const double perturb = 1e-11;
@@ -320,6 +384,8 @@ RCPP_MODULE(sbm_module) {
       .field("pi", &NestedSBM::pi)
       .field("w0", &NestedSBM::w0)
       .field("pi0", &NestedSBM::pi0)
+      .field("xi_freq_over_z", &NestedSBM::xi_freq_over_z)
+      .field("z_freq", &NestedSBM::z_freq)
       .method("comp_count_tensors", &NestedSBM::comp_count_tensors)
       .method("print", &NestedSBM::print)
       .method("update_z_element", &NestedSBM::update_z_element)
