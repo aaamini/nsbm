@@ -58,10 +58,10 @@ double comp_log_beta_ratio(
     const double alpha, const double beta, 
     const int d, const int dbar) {
 
-    if (alpha <= 0) throw std::invalid_argument(str(boost::format("Invalid alpha value of %1% for Beta ratio.") % alpha));
-    if (beta <= 0) throw std::invalid_argument(str(boost::format("Invalid beta value of %1% for Beta ratio.") % beta));
-    if (alpha + d <= 0) throw std::invalid_argument(str(boost::format("Invalid alpha + d value of %1% for Beta ratio.") % (alpha + d)));
-    if (beta + dbar <= 0) throw std::invalid_argument(str(boost::format("Invalid beta + dbar value of %1% for Beta ratio.") % (beta + dbar)));
+    // if (alpha <= 0) throw std::invalid_argument(str(boost::format("Invalid alpha value of %1% for Beta ratio.") % alpha));
+    // if (beta <= 0) throw std::invalid_argument(str(boost::format("Invalid beta value of %1% for Beta ratio.") % beta));
+    // if (alpha + d <= 0) throw std::invalid_argument(str(boost::format("Invalid alpha + d value of %1% for Beta ratio.") % (alpha + d)));
+    // if (beta + dbar <= 0) throw std::invalid_argument(str(boost::format("Invalid beta + dbar value of %1% for Beta ratio.") % (beta + dbar)));
         
     return comp_log_gamma_ratio(alpha, d) + 
         comp_log_gamma_ratio(beta, dbar) -

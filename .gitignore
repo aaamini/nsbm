@@ -1,3 +1,4 @@
+*.png
 .Rproj.user
 .Rhistory
 .RData

@@ -10,14 +10,14 @@ source("R/splice_sampler.R")
 source("R/data_gen.R")
 
 # simulation ----
-# set.seed(575)
+set.seed(1234)
 niter = 10
 K = L = 10
-n_cores = 32
+n_cores = 3
 sparse_data = F
 
 if (!sparse_data) {
-  n = 40; J= 60
+  n = 50; J = 24
 } else{
   n = 50; J = 25; lambda = 10; K_tru = 3
 }
@@ -84,7 +84,7 @@ res %>%
   ylab("NMI") + xlab("Iteration") + labs(title = state_str)
 
 
-tag = "sparse"
+# tag = "sparse"
 ggsave(sprintf("test_splice_new_%s_%s.png", state_str, tag), width = 6, height=5)
 
 knitr::kable( res %>% 
