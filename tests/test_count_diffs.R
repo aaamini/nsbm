@@ -8,7 +8,25 @@ A = nett::fast_sbm(z, eta)
 
 
 Rcpp::sourceCpp("src/utils.cpp", verbose = T)
- 
+# Test update compression
+B = sp_compress_col(A, z-1, K)
+Bold = rlang::duplicate(B)
+j = 30
+Bi = sp_single_col_compress(A, j-1, z-1, K)
+Bi
+B[j,]
+
+znew = z
+(zj_old = z[j])
+znew[j] = 3
+sum(abs(z - znew))
+Bnew = sp_compress_col(A, znew-1, K)
+Bnew2 = update_col_compress(B, A, j-1, zj_old-1, znew[j]-1)
+sum(abs(Bold - Bnew))
+sum(abs(Bold - Bnew2))
+sum(abs(Bnew - Bnew2))
+
+# 
 out = comp_blk_sums_and_sizes(A, z-1, K)
 out$lambda
 z_new = z

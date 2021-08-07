@@ -33,6 +33,20 @@ methods[["Mult-SBM-collaped-v2"]] = function(A) {
   hsbm::get_map_labels(z_list, burnin = burnin, consecutive = T)$labels
 }
 
+methods[["Mult-SBM-collaped-v3"]] = function(A) {
+  z_list = convert_cpp_label_matrix_to_list(
+    multsbm_collapsed_gibbs_sampler_v3(A, K, alpha = alpha, beta = beta, niter = niter)
+  )
+  hsbm::get_map_labels(z_list, burnin = burnin, consecutive = T)$labels
+}
+
+methods[["Mult-SBM-collaped-v4"]] = function(A) {
+  z_list = convert_cpp_label_matrix_to_list(
+    multsbm_collapsed_gibbs_sampler_v4(A, K, alpha = alpha, beta = beta, niter = niter)
+  )
+  hsbm::get_map_labels(z_list, burnin = burnin, consecutive = T)$labels
+}
+
 methods[["Mult-SBM-regular"]] =  function(A) {
   z_list = convert_cpp_label_matrix_to_list(
     multsbm_gibbs_sampler_fast(A, K, alpha, beta = beta, niter = niter)

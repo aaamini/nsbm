@@ -181,7 +181,7 @@ arma::mat comp_blk_sums(arma::sp_mat At, arma::uvec z, int Kcap) {
 }
 
 // [[Rcpp::export]]
-arma::mat sp_compress_col(arma::sp_mat At, arma::uvec z, int Kcap) {
+arma::mat sp_compress_col(const arma::sp_mat& At, const arma::uvec& z, const int& Kcap) {
     int n = At.n_rows;
     arma::mat B(n, Kcap, arma::fill::zeros);
 
@@ -195,19 +195,83 @@ arma::mat sp_compress_col(arma::sp_mat At, arma::uvec z, int Kcap) {
     return B;
 }
 
-// [[Rcpp::export]]
-arma::vec sp_single_col_compress(arma::sp_mat A, int col_idx, arma::uvec z, int Kcap) {
 
-    arma::sp_mat Acol(A.col(col_idx));
+// // [[Rcpp::export]]
+// arma::mat& update_col_compress(
+//     arma::mat& B, const arma::sp_mat& A, const int col_idx, 
+//     const int zj_old, const int zj_new) {
+//     // This function modifies B in place, and also returns the updated value;
+    
+//    arma::sp_mat Acol(A.col(col_idx));
+
+//     // Rcpp::print(wrap(Acol));
+//     for (arma::sp_mat::iterator it = Acol.begin(); it != Acol.end(); ++it) {
+//         B(it.row(), zj_old) -= (*it);
+//         B(it.row(), zj_new) += (*it);
+//         // Rcout << it.row() << " " << (*it) << "\n";
+//     }
+//     return B;
+// }
+
+// [[Rcpp::export]]
+arma::vec sp_single_col_compress(const arma::sp_mat& A, const int& col_idx, const arma::uvec& z, const int& Kcap) {
+
+    // arma::sp_mat Acol(A.col(col_idx));
     arma::vec b(Kcap, arma::fill::zeros);
 
     // Rcpp::print(wrap(Acol));
-    for (arma::sp_mat::iterator it = Acol.begin(); it != Acol.end(); ++it) {
+    // for (arma::sp_mat::iterator it = Acol.begin(); it != Acol.end(); ++it) {
+    for (arma::sp_mat::const_col_iterator it = A.begin_col(col_idx); it != A.end_col(col_idx); ++it) {
         b(z(it.row())) += (*it);
         //Rcout << it.row() << " ";
     }
     return b;
 }
+
+// // [[Rcpp::export]]
+// arma::vec sp_single_col_compress2(arma::sp_mat A, int row_idx, arma::uvec z, int Kcap) {
+
+//     arma::sp_mat Arow(A.row(row_idx));
+//     arma::vec b(Kcap, arma::fill::zeros);
+
+//     // Rcpp::print(wrap(Acol));
+//     for (arma::sp_mat::iterator it = Arow.begin(); it != Arow.end(); ++it) {
+//         b(z(it.col())) += (*it);
+//         //Rcout << it.row() << " ";
+//     }
+//     return b;
+// }
+
+
+
+// [[Rcpp::export]]
+arma::mat sp_compress_col2(const arma::sp_mat& At, const arma::uvec& z, const int& Kcap) {
+    int n = At.n_rows;
+    arma::mat B(Kcap, n, arma::fill::zeros);
+
+    for(int i = 0; i < n; i++) {
+        B.col(i) = sp_single_col_compress(At, i, z, Kcap);
+    }
+
+    return B;
+}
+
+// [[Rcpp::export]]
+arma::mat sp_compress_col3(const arma::sp_mat& A, const arma::uvec& z, const int Kcap) {
+    int n = A.n_rows;
+    arma::mat B(n, Kcap, arma::fill::zeros);
+
+    for(int col_idx = 0; col_idx < n; col_idx++) {
+        for (arma::sp_mat::const_col_iterator it = A.begin_col(col_idx); it != A.end_col(col_idx); ++it) {
+            B(col_idx, z(it.row())) += (*it);
+            //Rcout << it.row() << " ";
+        }
+        
+    }
+
+    return B;
+}
+
 
 // // This is for DCSBM setup
 // arma::mat comp_blk_sums_diff(arma::sp_mat& A, int s, int zs_new, arma::uvec& z, int Kcap) {
@@ -534,10 +598,8 @@ void sbm_update_labels(
 //     return out;
 // }
 
-
-// TODO: This should be named comp_blk_sums_and_sizes
 // [[Rcpp::export]]
-List comp_blk_sums_and_sizes(arma::sp_mat At, arma::uvec z, int Kcap, bool div_diag = true) {
+List comp_blk_sums_and_sizes(const arma::sp_mat& At, const arma::uvec& z, const int Kcap, const bool div_diag = true) {
     // z is a Kcap x 1 vector
     // At is a sparse n x n matrix
 

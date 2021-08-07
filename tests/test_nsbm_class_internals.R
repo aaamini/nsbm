@@ -1,6 +1,6 @@
 library(ggplot2)
 library(dplyr)
-Rcpp::sourceCpp("src/NestedSBM.cpp", verbose = T)
+Rcpp::sourceCpp("src/NestedSBM.cpp", verbose = F)
 setMethod("show", "Rcpp_NestedSBM", function(object) object$print())
 
 #set.seed(1234)
@@ -80,3 +80,6 @@ m2 - old_m
 model$comp_count_tensors() # full computation of the tensor
 model$m - m2 # this should always be zero
 
+model$blk_compressions
+model$update_xi_element(j-1, 3)
+out = model$run_gibbs(10)

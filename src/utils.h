@@ -20,11 +20,17 @@ arma::uvec fast_agg_u(arma::uvec x, arma::uvec z, int K) ;
 
 arma::mat comp_blk_sums(arma::sp_mat At, arma::uvec z, int Kcap);
 
-arma::mat sp_compress_col(arma::sp_mat At, arma::uvec z, int Kcap);
+// arma::mat sp_compress_col(arma::sp_mat At, arma::uvec z, int Kcap);
+arma::mat sp_compress_col(const arma::sp_mat& At, const arma::uvec& z, const int& Kcap);
 
-List comp_blk_sums_and_sizes(arma::sp_mat At, arma::uvec z, int Kcap, bool div_diag = true);
+List comp_blk_sums_and_sizes(const arma::sp_mat& At, const arma::uvec& z, const int Kcap, const bool div_diag = true);
 
-arma::vec sp_single_col_compress(arma::sp_mat A, int col_idx, arma::uvec z, int Kcap);
+// arma::vec sp_single_col_compress(arma::sp_mat A, int col_idx, arma::uvec z, int Kcap);
+arma::vec sp_single_col_compress(const arma::sp_mat& A, const int& col_idx, const arma::uvec& z, const int& Kcap);
+
+// arma::mat& update_col_compress(
+//     arma::mat& B, const arma::sp_mat& A, const int col_idx, 
+//     const int zj_old, const int zj_new);
 
 arma::mat comp_blk_sums_diff(arma::sp_mat& A, int s, int zs_new, arma::uvec& z, int Kcap);
 

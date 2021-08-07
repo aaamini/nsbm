@@ -11,20 +11,21 @@ source("R/data_gen.R")
 
 # simulation ----
 set.seed(1234)
-niter = 50
+niter = 100
 K = L = 10
 n_cores = 3
 sparse_data = F
 
 if (!sparse_data) {
-  n = 50; J = 12
+  n = 50; J = 24
+  # n = 50; J = 12
 } else{
   n = 50; J = 25; lambda = 10; K_tru = 3
 }
 
-nreps = 12
+nreps = 10
 methods = list()
-methods[["Pure C++"]] = function(A) {
+methods[["C++ (collapsed)"]] = function(A) {
   model =  new(NestedSBM, A, K, L)
   fitted_model <- model$run_gibbs(niter) 
   fitted_model$z
@@ -35,6 +36,13 @@ methods[["Splice"]] = function(A) {
   samp$z
 }
 
+methods[["C++ (non-collapsed)"]] = function(A) {
+  model =  new(NestedSBM, A, K, L)
+  fitted_model <- model$run_gibbs_via_eta(niter) 
+  fitted_model$z
+}
+
+
 # methods[["Nathan's"]] = function(A) {
 #   samp <- gibbs.nSBM(A, K, L, ns = niter, monitor = TRUE)
 #   samp$z
@@ -43,7 +51,7 @@ methods[["Splice"]] = function(A) {
 mtd_names = names(methods)
 
 res = do.call(rbind, mclapply(1:nreps, function(rep) {
-# res = do.call(rbind, lapply(1:nreps, function(rep) {
+# es = do.call(rbind, lapply(1:nreps, function(rep) {
     if (!sparse_data){
         out = generate_nathans_data(n = n, J = J) 
     } else {
@@ -86,7 +94,7 @@ print(p)
 tag = ""
 # ggsave(sprintf("test_splice_new_%s_%s.png", state_str, tag), width = 6, height=5)
 
-knitr::kable( res %>% 
-  filter(iter > niter / 2) %>% 
-  group_by(method) %>% summarise(elapsed_time = mean(elapsed_time), nmi = mean(nmi)) 
-)
+print(knitr::kable( res %>% 
+                      filter(iter > niter / 2) %>% 
+                      group_by(method) %>% summarise(elapsed_time = mean(elapsed_time), nmi = mean(nmi)) 
+))

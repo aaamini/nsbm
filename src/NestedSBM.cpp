@@ -55,6 +55,11 @@ class NestedSBM {
         arma::mat w;    // the prior on "xi"
         arma::vec u;
         arma::mat v;
+        // std::vector<arma::mat> blk_compressions;
+
+        arma::cube a;   // log[eta/(1-eta)]
+        arma::cube b;   // log(1-eta)
+        arma::cube eta;
         
         arma::cube m;   // m(x,y,k)
         arma::cube mbar; // mbar(x,y,k)
@@ -81,11 +86,16 @@ class NestedSBM {
             J = A.length();
             n = arma::uvec(J);
             xi = std::vector<arma::uvec>(J);
+            // blk_compressions = std::vector<arma::mat>(J);
             // z = arma::uvec(J);
-            m = arma::cube(L, L, K, arma::fill::zeros); // m tensor
-            mbar = arma::cube(L, L, K, arma::fill::zeros); // mbar tensor
+            m = arma::cube(L, L, K, arma::fill::zeros);     // m tensor
+            mbar = arma::cube(L, L, K, arma::fill::zeros);  // mbar tensor
+            a = arma::cube(L, L, K, arma::fill::zeros);     // a tensor
+            b = arma::cube(L, L, K, arma::fill::zeros);     // b tensor
+            eta = arma::cube(L, L, K, arma::fill::zeros); 
             // pi = arma::vec(K, arma::fill::ones);
-             w = arma::mat(L, K, arma::fill::ones);
+            w = arma::mat(L, K, arma::fill::ones);
+             
 
             // z_log_prob_record = arma::vec(K);
 
@@ -101,6 +111,7 @@ class NestedSBM {
 
             z_freq = get_freq(z, K);
             xi_freq_over_z = arma::umat(L, K, arma::fill::ones);
+
             for (int k = 0; k < K; k++) {
                 xi_freq_over_z.col(k) = get_xi_freq_over_z(k);
             }
@@ -112,17 +123,23 @@ class NestedSBM {
             }
 
             arma::vec u = arma::vec(K, arma::fill::ones);
-            u(arma::span(0,K-2)) *= 0.5;
-            
+            //u(arma::span(0,K-2)) *= 1. / (1+pi0);            
+            u(arma::span(0,K-2)) *= 0.5;            
             pi = stick_break(u);
 
             v = arma::mat(L, K, arma::fill::ones);
             w = arma::mat(L, K, arma::fill::ones);
             v.rows(0,K-2) *= 1. /(1+w0);
+            // v.rows(0,K-2) *= 0.5;
             // Rcpp::print(wrap(v));
             for (int k = 0; k < K; k++) {
                 w.col(k) = stick_break(v.col(k));
             }
+
+            // for (int j = 0; j < J; j++) {
+            //     blk_compressions[j] = sp_compress_col(A[j], xi[j], L);
+            // }
+            // Rcpp::print(wrap( blk_compressions[1]));
         }
 
         void print() {
@@ -174,14 +191,16 @@ class NestedSBM {
         void update_w(){
             for (int k = 0; k < K; k++) {
                 xi_freq_over_z.col(k) = get_xi_freq_over_z(k);
-                w.col(k) = stick_break( gem_gibbs_update_v3(xi_freq_over_z.col(k), w0) );
+                v.col(k) = gem_gibbs_update_v3(xi_freq_over_z.col(k), w0);
+                w.col(k) = stick_break( v.col(k) );
             }        
         }
 
         void update_pi() {
             // pi = stick_break( gem_gibbs_update_v2(get_freq(z, K), pi0) );
-            z_freq = get_freq(z, K);
-            pi = stick_break( gem_gibbs_update_v3(z_freq, pi0) );
+            // z_freq = get_freq(z, K);
+            u = gem_gibbs_update_v3(z_freq, pi0);
+            pi = stick_break( u );
         }
 
         void update_z_element(const int j) {
@@ -203,7 +222,6 @@ class NestedSBM {
             log_prob += log(w.t() + perturb) * xi_j_freq;
             //for (int ll = 0; ll < L; ll++) { log_prob += log(w[ll, z(j)] + perturb) * xi_j_freq[ll]; }
 
-            
             log_prob += log(pi + perturb);
 
             // update z(j)
@@ -215,15 +233,89 @@ class NestedSBM {
                 m.slice(zj_old) -= D;
                 mbar.slice(z(j)) += Dbar;
                 mbar.slice(zj_old) -= Dbar;
+                z_freq(z(j))++;
+                z_freq(zj_old)--;
             }
         }
 
         void update_xi_element(const int j, const int s) {
+            
+            arma::vec U = sp_single_col_compress(A[j], s, xi[j], L);
+            //  arma::vec U  = blk_compressions[j].row(s).t();
+            // Rcpp::print(wrap(U));
+            // Rcpp::print(wrap(sp_single_col_compress(A[j], s, xi[j], L)));
 
-            sbm_update_labels(A[j], s, xi[j], L, 
-                        m.slice(z(j)), mbar.slice(z(j)), 
-                        w.col(z(j)), beta_params.alpha, beta_params.beta);
+            arma::uvec V = get_freq(xi[j], L);
+            V(xi[j](s))--;
+
+            int xi_j_s_old = xi[j](s);
+            // prob is K x 1 vector`
+            arma::vec temp = comp_log_beta_ratio_sums(m.slice(z(j)), mbar.slice(z(j)), U, V, xi_j_s_old, beta_params.alpha, beta_params.beta);
+
+            arma::vec log_prob = temp + log(w.col(z(j)));
+
+            xi[j](s) = sample_index(safe_exp(log_prob)); // update z(s) -- this the zs_new we pick
+
+            // update m and mbar
+            if ( xi_j_s_old != xi[j](s) ) {
+                arma::mat D = comp_blk_sums_diff_v1(U, xi[j](s), xi_j_s_old);
+                arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), xi[j](s), xi_j_s_old);
+                m.slice(z(j)) += D;
+                mbar.slice(z(j)) += DN - D;
+                // update_col_compress(blk_compressions[j], A[j], s, xi_j_s_old, xi[j](s));
+            }
+
+
+            // sbm_update_labels(A[j], s, xi[j], L, 
+            //             m.slice(z(j)), mbar.slice(z(j)), 
+            //             w.col(z(j)), beta_params.alpha, beta_params.beta);
         }
+
+        // --- updates for non-collapsed sampler --->
+        void update_xi_element_via_eta(const int j, const int s) {
+            arma::vec tau = sp_single_col_compress(A[j], s, xi[j], L);
+            arma::uvec rho = get_freq(xi[j], L);
+            rho(xi[j](s))--;         
+
+            arma::vec log_prob = log(w.col(z(j))) + a.slice(z(j)) * tau + b.slice(z(j)) * rho; 
+            xi[j](s) = sample_index(safe_exp(log_prob));  
+        }
+
+        void update_eta() {
+            comp_count_tensors();
+            for (int k = 0; k < K; k++) {
+                eta.slice(k) = symmat_rbeta(m.slice(k) + beta_params.alpha, mbar.slice(k) + beta_params.beta);
+                a.slice(k) = log(eta.slice(k) / (1-eta.slice(k)) + perturb);
+                b.slice(k) = log(1-eta.slice(k) + perturb);
+            }
+        }
+
+        void update_z_element_via_eta(const int j) {
+            
+            int r0 = z(j);
+            List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
+            arma::mat D = out["lambda"]; 
+            arma::umat M = out["NN"];
+
+            arma::uvec xi_j_freq = get_freq(xi[j], L);
+            arma::vec log_prob = log(w.t() + perturb) * xi_j_freq;
+            log_prob += log(pi + perturb);
+
+            for (int r = 0; r < K; r++) {
+                for (int x = 0; x < L; x++) {
+                    for (int y = x; y < L; y++) {
+                        log_prob(r) += 
+                            (a(x,y,r) - a(x,y,r0))*D(x,y) + 
+                            (b(x,y,r) - b(x,y,r0))*M(x,y);
+                    }
+                }
+            }
+        
+            // update z(j)
+            z(j) = sample_index(safe_exp(log_prob)); 
+                        
+        }
+        // <--- end of updates for non-collapsed sampler ---
 
         void update_z_element_naive(const int j) {
             // arma::cube  m_old = m;
@@ -253,6 +345,50 @@ class NestedSBM {
         }
 
         // List run_gibbs(const int niter = 100, const bool init_count_tensors = true) {
+        List run_gibbs_via_eta(const int niter) {
+            // Run full Gibbs updates for "niter" iterations and record label history
+            std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
+            arma::umat z_hist(J, niter+1);
+
+            xi_hist[0] = xi;
+            z_hist.col(0) = z + 1;
+          
+
+            for (int iter = 0; iter < niter; iter++) {           
+                update_eta(); // also updates count tensors m and mbar
+                
+                for (int j = 0; j < J; j++) {
+                    update_z_element_via_eta(j);
+                    for (int s = 0; s < n(j); s++) {
+                        update_xi_element_via_eta(j, s);
+                    } // s
+                } // j
+
+                // z_freq = get_freq(z, K);
+                // arma::uvec idx = arma::find(z_freq > 0);
+                // for (auto k : idx) {
+                //     arma::uvec z_cluster_k = arma::find(z == k);
+                //     for (auto j : z_cluster_k) {
+                //         for (int s = 0; s < n(j); s++) {
+                //             update_xi_element_via_eta(j, s);
+                //         } // s                        
+                //     }
+                // }
+
+                update_pi();
+                update_w();
+
+                // Rcpp::print(wrap(z.t()));
+                xi_hist[iter+1] = xi;
+                z_hist.col(iter+1) = z + 1;
+            } // iter
+
+            return Rcpp::List::create( 
+                Rcpp::Named("z") = z_hist,
+                Rcpp::Named("xi") = xi_hist
+            );
+        }
+
 
         List run_gibbs(const int niter) {
             // Run full Gibbs updates for "niter" iterations and record label history
@@ -273,7 +409,7 @@ class NestedSBM {
                     // } // s
                 } // j
 
-                z_freq = get_freq(z, K);
+                // z_freq = get_freq(z, K);
                 arma::uvec idx = arma::find(z_freq > 0);
                 for (auto k : idx) {
                     arma::uvec z_cluster_k = arma::find(z == k);
@@ -283,6 +419,10 @@ class NestedSBM {
                         } // s                        
                     }
                 }
+
+                // for (int j = 0; j < J; j++) {
+                //     blk_compressions[j] = sp_compress_col(A[j], xi[j], L);
+                // }
 
                 update_pi();
                 update_w();
@@ -396,6 +536,7 @@ RCPP_MODULE(sbm_module) {
       .method("get_xi_freq_over_z", &NestedSBM::get_xi_freq_over_z)
       .method("run_gibbs", &NestedSBM::run_gibbs)
       .method("run_gibbs_naive", &NestedSBM::run_gibbs_naive)
+      .method("run_gibbs_via_eta", &NestedSBM::run_gibbs_via_eta)
       .method("update_w", &NestedSBM::update_w)
       .method("update_pi", &NestedSBM::update_pi)
       ;
