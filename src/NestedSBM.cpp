@@ -277,11 +277,22 @@ class NestedSBM {
             arma::uvec rho = get_freq(xi[j], L);
             rho(xi[j](s))--;         
 
+            // int xi_j_s_old = xi[j](s);
             arma::vec log_prob = log(w.col(z(j))) + a.slice(z(j)) * tau + b.slice(z(j)) * rho; 
             xi[j](s) = sample_index(safe_exp(log_prob));  
+
+            // // update m and mbar
+            // if ( xi_j_s_old != xi[j](s) ) {
+            //     arma::mat D = comp_blk_sums_diff_v1(tau, xi[j](s), xi_j_s_old);
+            //     arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(rho), xi[j](s), xi_j_s_old);
+            //     m.slice(z(j)) += D;
+            //     mbar.slice(z(j)) += DN - D;
+            //     // update_col_compress(blk_compressions[j], A[j], s, xi_j_s_old, xi[j](s));
+            // }
         }
 
-        void update_eta() {
+        void update_eta() {    
+            // Update the eta-related tensors
             comp_count_tensors();
             for (int k = 0; k < K; k++) {
                 eta.slice(k) = symmat_rbeta(m.slice(k) + beta_params.alpha, mbar.slice(k) + beta_params.beta);
@@ -313,37 +324,22 @@ class NestedSBM {
         
             // update z(j)
             z(j) = sample_index(safe_exp(log_prob)); 
+
+            // // update m and mbar tensors
+            // if (z(j) != r0) {
+            //     arma::mat Dbar = M - D;
+            //     m.slice(z(j)) += D;
+            //     m.slice(r0) -= D;
+            //     mbar.slice(z(j)) += Dbar;
+            //     mbar.slice(r0) -= Dbar;
+            //     z_freq(z(j))++;
+            //     z_freq(r0)--;
+            // }
                         
         }
         // <--- end of updates for non-collapsed sampler ---
 
-        void update_z_element_naive(const int j) {
-            // arma::cube  m_old = m;
-            // arma::cube  mbar_old = mbar;
-            arma::vec log_prob(K, arma::fill::zeros);
-
-            // int zj_old = z(j);
-            arma::uvec xi_j_freq = get_freq(xi[j], L);
-
-            for (int r = 0; r < K; r++) {
-                z(j) = r;
-                comp_count_tensors(); // this updates "m" and "mbar" based on the current "z"
-                arma::cube temp = 
-                    cube_lbeta(m + beta_params.alpha, mbar + beta_params.beta); // - cube_lbeta(m_old + beta_params.alpha, mbar_old + beta_params.beta);
-
-                for (int k = 0; k < K; k++){
-                    log_prob(r) += arma::sum( arma::trimatu(temp.slice(k)).as_col() );
-                }
-            }
-            
-            log_prob += log(w.t() + perturb) * xi_j_freq;
-            log_prob += log(pi + perturb);
-
-            // update z(j)
-            z(j) = sample_index(safe_exp(log_prob)); 
-            comp_count_tensors();
-        }
-
+    
         // List run_gibbs(const int niter = 100, const bool init_count_tensors = true) {
         List run_gibbs_via_eta(const int niter) {
             // Run full Gibbs updates for "niter" iterations and record label history
@@ -353,9 +349,9 @@ class NestedSBM {
             xi_hist[0] = xi;
             z_hist.col(0) = z + 1;
           
-
+            // comp_count_tensors();
             for (int iter = 0; iter < niter; iter++) {           
-                update_eta(); // also updates count tensors m and mbar
+                update_eta(); // also updates count tensors m and mbar 
                 
                 for (int j = 0; j < J; j++) {
                     update_z_element_via_eta(j);
@@ -446,6 +442,35 @@ class NestedSBM {
             
         }
 
+        // Naive Gibbs ------->
+
+        void update_z_element_naive(const int j) {
+            // arma::cube  m_old = m;
+            // arma::cube  mbar_old = mbar;
+            arma::vec log_prob(K, arma::fill::zeros);
+
+            // int zj_old = z(j);
+            arma::uvec xi_j_freq = get_freq(xi[j], L);
+
+            for (int r = 0; r < K; r++) {
+                z(j) = r;
+                comp_count_tensors(); // this updates "m" and "mbar" based on the current "z"
+                arma::cube temp = 
+                    cube_lbeta(m + beta_params.alpha, mbar + beta_params.beta); // - cube_lbeta(m_old + beta_params.alpha, mbar_old + beta_params.beta);
+
+                for (int k = 0; k < K; k++){
+                    log_prob(r) += arma::sum( arma::trimatu(temp.slice(k)).as_col() );
+                }
+            }
+            
+            log_prob += log(w.t() + perturb) * xi_j_freq;
+            log_prob += log(pi + perturb);
+
+            // update z(j)
+            z(j) = sample_index(safe_exp(log_prob)); 
+            comp_count_tensors();
+        }
+
         List run_gibbs_naive(const int niter) {
             // Run full Gibbs updates for "niter" iterations and record label history
             std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
@@ -474,6 +499,8 @@ class NestedSBM {
                 Rcpp::Named("xi") = xi_hist
             );
         }
+
+        // end Naive Gibbs ------->
 
         // void update_xi_element_naive(const int j, const int s) {
         //     arma::vec log_prob(L, arma::fill::zeros);

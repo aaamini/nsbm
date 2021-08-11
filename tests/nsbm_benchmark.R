@@ -92,7 +92,7 @@ p = res %>%
 print(p)
 
 tag = ""
-# ggsave(sprintf("test_splice_new_%s_%s.png", state_str, tag), width = 6, height=5)
+# ggsave(sprintf("test_non_collapsed_%s_%s.png", state_str, tag), width = 6, height=5)
 
 print(knitr::kable( res %>% 
                       filter(iter > niter / 2) %>% 
