@@ -1,3 +1,38 @@
+library(nett)
+symmetrize = function(A) {
+  (A + t(A))/2
+} 
+
+runifmat = function(K, sym = T) {
+  A = matrix(runif(K^2),K)
+  if (sym) return(symmetrize(A))
+}
+
+gen_rand_nsbm = function(n = 50, J = 10, 
+                         K = 3, L = 7, 
+                         lambda = 10, 
+                         gam = 0.3, zeta = 0.1, 
+                         pri = rep(1, L) / L) {
+  
+  # Create connectivity matrices eta[[j]]
+  eta = lapply(1:K, function(j) (1-gam)*rsymperm(L) + gam*runifmat(L))
+  for (k in 1:K) {
+    eta[[k]] = (1-zeta)*eta[[1]] + zeta*eta[[k]] # pull eta[[k]] towards eta[[1]]
+    scale = nett::get_dcsbm_exav_deg(n, pri, eta[[k]], 1)
+    eta[[k]] = eta[[k]] * lambda / scale
+  }
+  
+  # Sample the labels, z, xi and adjacency matrices A[[j]]
+  z = sample(1:K, J, replace = T)
+  xi = A = vector("list", J)
+  for (j in 1:J) {
+    xi[[j]] = sample(L, n, replace = T, )
+    A[[j]] = nett::fast_sbm(xi[[j]], eta[[z[j]]])
+  }
+  list(A = A, eta = eta, xi = xi, z = z)
+}
+
+
 generate_sparse_random_data = function(n = 50, J = 25, lambda = 10, K_tru = 3) {
   z_tru = sample(1:K_tru, J, replace = T)
   eta = lapply(1:K_tru, function(i) nett::gen_rand_conn(n, L, lambda = lambda))

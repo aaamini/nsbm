@@ -79,7 +79,7 @@ splice_sampler <- function(A, K = 35, L = 55, ns, monitor = FALSE) {
       for (j in z_k) {
         for (i in seq_len(n[j])) {
           model$update_xi_element(j-1, i-1)
-          xi[i, j, q] = model$xi[[j]][i] +1
+          xi[i, j, q] = model$xi[[j]][i] + 1
         } # end i loop
       } # end j loop
     } # end k loop
@@ -126,9 +126,11 @@ splice_sampler <- function(A, K = 35, L = 55, ns, monitor = FALSE) {
     
   } # end chain loop
   
-  return(list(z = z, xi = xi
-              , pi_k = pi_k, w_k = w_k
-              , pi_0 = pi_0, w_0 = w_0))
+  return(list(z = z,
+              xi = lapply(1:dim(xi)[3], function(t) lapply(1:dim(xi)[2], function(j) xi[,j,t])),
+              # xi = xi
+              pi_k = pi_k, w_k = w_k,
+              pi_0 = pi_0, w_0 = w_0))
               # , log.post = log.post))
   
 }

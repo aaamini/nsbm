@@ -154,6 +154,11 @@ class NestedSBM {
                 <<  "= (" << w0 << ", "<< pi0 << ")\n";
         }
 
+        void set_beta_params(const double alpha_eta, const double beta_eta) {
+            beta_params.alpha = alpha_eta;
+            beta_params.beta = beta_eta;    
+        }
+
         void comp_count_tensors() {
             //List out = comp_blk_sums_and_sizes(Rcpp::as<arma::sp_mat>(A[0]), xi[0], L);
             m = arma::cube(L, L, K, arma::fill::zeros); // m tensor
@@ -198,7 +203,7 @@ class NestedSBM {
 
         void update_pi() {
             // pi = stick_break( gem_gibbs_update_v2(get_freq(z, K), pi0) );
-            // z_freq = get_freq(z, K);
+            z_freq = get_freq(z, K);
             u = gem_gibbs_update_v3(z_freq, pi0);
             pi = stick_break( u );
         }
@@ -325,20 +330,19 @@ class NestedSBM {
             // update z(j)
             z(j) = sample_index(safe_exp(log_prob)); 
 
-            // // update m and mbar tensors
+            // // // update m and mbar tensors
             // if (z(j) != r0) {
-            //     arma::mat Dbar = M - D;
-            //     m.slice(z(j)) += D;
-            //     m.slice(r0) -= D;
-            //     mbar.slice(z(j)) += Dbar;
-            //     mbar.slice(r0) -= Dbar;
-            //     z_freq(z(j))++;
-            //     z_freq(r0)--;
+            // //     arma::mat Dbar = M - D;
+            // //     m.slice(z(j)) += D;
+            // //     m.slice(r0) -= D;
+            // //     mbar.slice(z(j)) += Dbar;
+            // //     mbar.slice(r0) -= Dbar;
+            //      z_freq(z(j))++;
+            //      z_freq(r0)--;
             // }
                         
         }
         // <--- end of updates for non-collapsed sampler ---
-
     
         // List run_gibbs(const int niter = 100, const bool init_count_tensors = true) {
         List run_gibbs_via_eta(const int niter) {
@@ -359,17 +363,6 @@ class NestedSBM {
                         update_xi_element_via_eta(j, s);
                     } // s
                 } // j
-
-                // z_freq = get_freq(z, K);
-                // arma::uvec idx = arma::find(z_freq > 0);
-                // for (auto k : idx) {
-                //     arma::uvec z_cluster_k = arma::find(z == k);
-                //     for (auto j : z_cluster_k) {
-                //         for (int s = 0; s < n(j); s++) {
-                //             update_xi_element_via_eta(j, s);
-                //         } // s                        
-                //     }
-                // }
 
                 update_pi();
                 update_w();
@@ -553,6 +546,7 @@ RCPP_MODULE(sbm_module) {
       .field("pi0", &NestedSBM::pi0)
       .field("xi_freq_over_z", &NestedSBM::xi_freq_over_z)
       .field("z_freq", &NestedSBM::z_freq)
+      .method("set_beta_params", &NestedSBM::set_beta_params)
       .method("comp_count_tensors", &NestedSBM::comp_count_tensors)
       .method("print", &NestedSBM::print)
       .method("update_z_element", &NestedSBM::update_z_element)
