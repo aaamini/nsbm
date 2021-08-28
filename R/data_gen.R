@@ -19,7 +19,7 @@ gen_rand_nsbm = function(n = 50, J = 10,
   for (k in 1:K) {
     eta[[k]] = (1-zeta)*eta[[1]] + zeta*eta[[k]] # pull eta[[k]] towards eta[[1]]
     scale = nett::get_dcsbm_exav_deg(n, pri, eta[[k]], 1)
-    eta[[k]] = eta[[k]] * lambda / scale
+    eta[[k]] = pmin(eta[[k]] * lambda / scale, 1)
   }
   
   # Sample the labels, z, xi and adjacency matrices A[[j]]

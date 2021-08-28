@@ -2,18 +2,22 @@ source("R/data_gen.R")
 source("R/inference.R")
 source("R/competing_methods.R")
 source("R/nsbm_wrapper.R")
+library(parallel)
+library(ggplot2)
+library(dplyr)
 
 n = 100
-K = 3
+K = 2
 L = 5
-J = 15
-lambda = 15
-nreps = 5
-n_cores = 3
+J = 20
+lambda = 30
+gam = .1
+nreps = 10
+n_cores = 32
 niter = 100
 
 
-runs = expand.grid(rep = 1:nreps, zeta = seq(0,1,length.out=5))
+runs = expand.grid(rep = 1:nreps, zeta = seq(0,1,length.out=8))
 
 methods = list()
 methods[["C++ (non-collapsed)"]] = function(A) {
@@ -23,17 +27,17 @@ methods[["C++ (non-collapsed)"]] = function(A) {
 }
 
 methods[["spec"]] = function(A) {
-    spec_net_clust(A, K = 3, L = 5)
+    spec_net_clust(A, K = K, L = L)
 }
 
 mtd_names = names(methods)
 
 
 res = do.call(rbind, mclapply(1:nrow(runs), function(ri) {
-# res = do.call(rbind, lapply(1:nrow(runs), function(ri) {
+#res = do.call(rbind, lapply(1:nrow(runs), function(ri) {
     zeta = runs[ri, "zeta"]
     rep = runs[ri, "rep"]
-    out = gen_rand_nsbm(n=n, K=K, L=L, J=J, zeta=zeta, lambda=lambda)
+    out = gen_rand_nsbm(n=n, K=K, L=L, J=J,  lambda=lambda, gam = gam, zeta=zeta)
     A = out$A
     z_tru = out$z
     xi_tru = out$xi
@@ -54,23 +58,7 @@ res = do.call(rbind, mclapply(1:nrow(runs), function(ri) {
 
 
 state_str =  sprintf("J = %d, n = %d, nreps = %d", J, n, nreps)
-p = res %>% 
-  group_by(zeta, method) %>% summarise(z_nmi = mean(z_nmi)) %>% 
-  ggplot(aes(x = zeta, y = z_nmi, color = method)) + 
-  # geom_line(aes(size = method), alpha = 0.5) +
-  geom_line(size = 1.2) + 
-  theme_minimal() +
-  # scale_colour_manual(values = c(1,1.5)) +
-  ggplot2::theme(
-    legend.background = ggplot2::element_blank(),
-    legend.title = ggplot2::element_blank(),
-    legend.position = c(0.8, 0.2),
-    # legend.text = ggplot2::element_text(size=18),
-  ) + 
-  ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
-  ylab("z-NMI") + xlab("zeta") + labs(title = state_str)
 
-print(p)
 
 p = res %>% 
   group_by(zeta, method) %>% summarise(xi_nmi = mean(xi_nmi)) %>% 
@@ -90,6 +78,24 @@ p = res %>%
 
 print(p)
 
+
+p = res %>% 
+  group_by(zeta, method) %>% summarise(z_nmi = mean(z_nmi)) %>% 
+  ggplot(aes(x = zeta, y = z_nmi, color = method)) + 
+  # geom_line(aes(size = method), alpha = 0.5) +
+  geom_line(size = 1.2) + 
+  theme_minimal() +
+  # scale_colour_manual(values = c(1,1.5)) +
+  ggplot2::theme(
+    legend.background = ggplot2::element_blank(),
+    legend.title = ggplot2::element_blank(),
+    legend.position = c(0.8, 0.2),
+    # legend.text = ggplot2::element_text(size=18),
+  ) + 
+  ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
+  ylab("z-NMI") + xlab("zeta") + labs(title = state_str)
+
+print(p)
 
 
 # nett::compute_mutual_info(ztru, sp_out$z)
