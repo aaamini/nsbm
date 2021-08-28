@@ -112,26 +112,32 @@ class NestedSBM {
             z_freq = get_freq(z, K);
             xi_freq_over_z = arma::umat(L, K, arma::fill::ones);
 
+            // Rcout << "1";
             for (int k = 0; k < K; k++) {
                 xi_freq_over_z.col(k) = get_xi_freq_over_z(k);
             }
 
+            // Rcout << "2";
             if (pi0 == 0) pi0 = 1. / (J * log(J));
             if (w0 == 0)  {
                 int n_min = arma::min(n);
                 w0 = 1. / (n_min * log(n_min));
             }
 
+            // Rcout << "3";
             arma::vec u = arma::vec(K, arma::fill::ones);
             //u(arma::span(0,K-2)) *= 1. / (1+pi0);            
             u(arma::span(0,K-2)) *= 0.5;            
             pi = stick_break(u);
 
+            // Rcout << "4";
             v = arma::mat(L, K, arma::fill::ones);
             w = arma::mat(L, K, arma::fill::ones);
-            v.rows(0,K-2) *= 1. /(1+w0);
+            v.rows(0,L-2) *= 1. /(1+w0);
             // v.rows(0,K-2) *= 0.5;
             // Rcpp::print(wrap(v));
+
+            // Rcout << "5";
             for (int k = 0; k < K; k++) {
                 w.col(k) = stick_break(v.col(k));
             }
@@ -141,6 +147,106 @@ class NestedSBM {
             // }
             // Rcpp::print(wrap( blk_compressions[1]));
         }
+
+        // --- updates for non-collapsed sampler --->
+        void update_xi_element_via_eta(const int j, const int s) {
+            arma::vec tau = sp_single_col_compress(A[j], s, xi[j], L);
+            arma::uvec rho = get_freq(xi[j], L);
+            rho(xi[j](s))--;         
+
+            // int xi_j_s_old = xi[j](s);
+            arma::vec log_prob = log(w.col(z(j))) + a.slice(z(j)) * tau + b.slice(z(j)) * rho; 
+            xi[j](s) = sample_index(safe_exp(log_prob));  
+
+        }
+
+        void comp_count_tensors() {
+            //List out = comp_blk_sums_and_sizes(Rcpp::as<arma::sp_mat>(A[0]), xi[0], L);
+            m = arma::cube(L, L, K, arma::fill::zeros); // m tensor
+            mbar = arma::cube(L, L, K, arma::fill::zeros); // mbar tensor
+
+            for (int j=0; j < J; j++) {
+                List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
+                arma::mat lambda = out["lambda"];
+                arma::umat NN = out["NN"]; 
+                m.slice(z(j)) += lambda;
+                mbar.slice(z(j)) += NN - lambda;
+            }
+        }
+
+        void update_eta() {    
+            // Update the eta-related tensors
+            comp_count_tensors();
+            for (int k = 0; k < K; k++) {
+                eta.slice(k) = symmat_rbeta(m.slice(k) + beta_params.alpha, mbar.slice(k) + beta_params.beta);
+                a.slice(k) = log(eta.slice(k) / (1-eta.slice(k)) + perturb);
+                b.slice(k) = log(1-eta.slice(k) + perturb);
+            }
+        }
+
+        void update_z_element_via_eta(const int j) {
+            int r0 = z(j);
+            List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
+            arma::mat D = out["lambda"]; 
+            arma::umat M = out["NN"];
+
+            arma::uvec xi_j_freq = get_freq(xi[j], L);
+            arma::vec log_prob = log(w.t() + perturb) * xi_j_freq;
+            log_prob += log(pi + perturb);
+
+            for (int r = 0; r < K; r++) {
+                for (int x = 0; x < L; x++) {
+                    for (int y = x; y < L; y++) {
+                        log_prob(r) += 
+                            (a(x,y,r) - a(x,y,r0))*D(x,y) + 
+                            (b(x,y,r) - b(x,y,r0))*M(x,y);
+                    }
+                }
+            }
+        
+            // update z(j)
+            z(j) = sample_index(safe_exp(log_prob)); 
+                        
+        }
+        // <--- end of updates for non-collapsed sampler ---
+    
+        // List run_gibbs(const int niter = 100, const bool init_count_tensors = true) {
+        List run_gibbs_via_eta(const int niter) {
+            // Run full Gibbs updates for "niter" iterations and record label history
+            std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
+            arma::umat z_hist(J, niter+1);
+
+            xi_hist[0] = xi;
+            z_hist.col(0) = z + 1;
+          
+            // comp_count_tensors();
+            for (int iter = 0; iter < niter; iter++) {           
+                update_eta(); // also updates count tensors m and mbar 
+                update_pi();
+                update_w();
+
+                for (int j = 0; j < J; j++) {
+                    update_z_element_via_eta(j);
+                    for (int s = 0; s < n(j); s++) {
+                        update_xi_element_via_eta(j, s);
+                    } // s
+                } // j
+
+                // update_pi();
+                // update_w();
+
+                // Rcpp::print(wrap(z.t()));
+                xi_hist[iter+1] = xi;
+                z_hist.col(iter+1) = z + 1;
+            } // iter
+
+            return Rcpp::List::create( 
+                Rcpp::Named("z") = z_hist,
+                Rcpp::Named("xi") = xi_hist
+            );
+        }
+
+
 
         void print() {
             Rcout << "- Nested SMB Model - \n"
@@ -159,19 +265,7 @@ class NestedSBM {
             beta_params.beta = beta_eta;    
         }
 
-        void comp_count_tensors() {
-            //List out = comp_blk_sums_and_sizes(Rcpp::as<arma::sp_mat>(A[0]), xi[0], L);
-            m = arma::cube(L, L, K, arma::fill::zeros); // m tensor
-            mbar = arma::cube(L, L, K, arma::fill::zeros); // mbar tensor
-
-            for (int j=0; j < J; j++) {
-                List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
-                arma::mat lambda = out["lambda"];
-                arma::umat NN = out["NN"]; 
-                m.slice(z(j)) += lambda;
-                mbar.slice(z(j)) += NN - lambda;
-            }
-        }
+        
 
         void set_xi_to_random_labels() {
             for (int j=0; j < J; j++) {
@@ -276,109 +370,7 @@ class NestedSBM {
             //             w.col(z(j)), beta_params.alpha, beta_params.beta);
         }
 
-        // --- updates for non-collapsed sampler --->
-        void update_xi_element_via_eta(const int j, const int s) {
-            arma::vec tau = sp_single_col_compress(A[j], s, xi[j], L);
-            arma::uvec rho = get_freq(xi[j], L);
-            rho(xi[j](s))--;         
-
-            // int xi_j_s_old = xi[j](s);
-            arma::vec log_prob = log(w.col(z(j))) + a.slice(z(j)) * tau + b.slice(z(j)) * rho; 
-            xi[j](s) = sample_index(safe_exp(log_prob));  
-
-            // // update m and mbar
-            // if ( xi_j_s_old != xi[j](s) ) {
-            //     arma::mat D = comp_blk_sums_diff_v1(tau, xi[j](s), xi_j_s_old);
-            //     arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(rho), xi[j](s), xi_j_s_old);
-            //     m.slice(z(j)) += D;
-            //     mbar.slice(z(j)) += DN - D;
-            //     // update_col_compress(blk_compressions[j], A[j], s, xi_j_s_old, xi[j](s));
-            // }
-        }
-
-        void update_eta() {    
-            // Update the eta-related tensors
-            comp_count_tensors();
-            for (int k = 0; k < K; k++) {
-                eta.slice(k) = symmat_rbeta(m.slice(k) + beta_params.alpha, mbar.slice(k) + beta_params.beta);
-                a.slice(k) = log(eta.slice(k) / (1-eta.slice(k)) + perturb);
-                b.slice(k) = log(1-eta.slice(k) + perturb);
-            }
-        }
-
-        void update_z_element_via_eta(const int j) {
-            
-            int r0 = z(j);
-            List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
-            arma::mat D = out["lambda"]; 
-            arma::umat M = out["NN"];
-
-            arma::uvec xi_j_freq = get_freq(xi[j], L);
-            arma::vec log_prob = log(w.t() + perturb) * xi_j_freq;
-            log_prob += log(pi + perturb);
-
-            for (int r = 0; r < K; r++) {
-                for (int x = 0; x < L; x++) {
-                    for (int y = x; y < L; y++) {
-                        log_prob(r) += 
-                            (a(x,y,r) - a(x,y,r0))*D(x,y) + 
-                            (b(x,y,r) - b(x,y,r0))*M(x,y);
-                    }
-                }
-            }
         
-            // update z(j)
-            z(j) = sample_index(safe_exp(log_prob)); 
-
-            // // // update m and mbar tensors
-            // if (z(j) != r0) {
-            // //     arma::mat Dbar = M - D;
-            // //     m.slice(z(j)) += D;
-            // //     m.slice(r0) -= D;
-            // //     mbar.slice(z(j)) += Dbar;
-            // //     mbar.slice(r0) -= Dbar;
-            //      z_freq(z(j))++;
-            //      z_freq(r0)--;
-            // }
-                        
-        }
-        // <--- end of updates for non-collapsed sampler ---
-    
-        // List run_gibbs(const int niter = 100, const bool init_count_tensors = true) {
-        List run_gibbs_via_eta(const int niter) {
-            // Run full Gibbs updates for "niter" iterations and record label history
-            std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
-            arma::umat z_hist(J, niter+1);
-
-            xi_hist[0] = xi;
-            z_hist.col(0) = z + 1;
-          
-            // comp_count_tensors();
-            for (int iter = 0; iter < niter; iter++) {           
-                update_eta(); // also updates count tensors m and mbar 
-                
-                for (int j = 0; j < J; j++) {
-                    update_z_element_via_eta(j);
-                    for (int s = 0; s < n(j); s++) {
-                        update_xi_element_via_eta(j, s);
-                    } // s
-                } // j
-
-                update_pi();
-                update_w();
-
-                // Rcpp::print(wrap(z.t()));
-                xi_hist[iter+1] = xi;
-                z_hist.col(iter+1) = z + 1;
-            } // iter
-
-            return Rcpp::List::create( 
-                Rcpp::Named("z") = z_hist,
-                Rcpp::Named("xi") = xi_hist
-            );
-        }
-
-
         List run_gibbs(const int niter) {
             // Run full Gibbs updates for "niter" iterations and record label history
             std::vector<std::vector<arma::uvec>> xi_hist(niter+1);

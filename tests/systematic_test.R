@@ -98,35 +98,3 @@ p = res %>%
 print(p)
 
 
-# nett::compute_mutual_info(ztru, sp_out$z)
-# # get_map_labels(out$z)
-# # get_map_labels(out$xi)$labels
-# # 
-# mean(Matrix::rowSums(A[[1]]))
-# 
-# K = L = 10
-# niter = 50
-# out = fit_nsbm(A, niter = niter, collapsed = F)
-# 
-# # library(nett)
-# # out$z[,niter+1]
-# # model =  new(NestedSBM, A, K, L)
-# # fitted_model <- model$run_gibbs(niter) 
-# # nett::compute_mutual_info(ztru, fitted_model$z[,niter+1])
-# zh = out$z
-# plot(sapply(1:ncol(zh), function(itr) nett::compute_mutual_info(ztru, zh[,itr])))
-# 
-# compute_mutual_info(ztru, get_map_labels(out$z)$labels)
-# 
-# j = 1
-# out$xi[[1]]
-# 
-# sourceCpp("src/dpsbm.cpp")
-# aa = fit_dpsbm(A[[1]], Zcap = 2*L)
-# plot(sapply(1:ncol(aa), function(itr) nett::compute_mutual_info(xi[[1]], aa[,itr])))
-# compute_mutual_info(xi[[1]], get_map_labels(aa)$labels)
-# 
-# compute_mutual_info(xi[[1]], spec_clust(A[[1]], 7))
-# 
-# # samp <- splice_sampler(A, K, L, ns = niter, monitor = TRUE)
-# # samp$z

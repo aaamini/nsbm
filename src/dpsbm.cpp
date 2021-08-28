@@ -9,7 +9,7 @@ using namespace Rcpp;
 
 //' @export
 // [[Rcpp::export]]
-arma::umat fit_dpsbm(arma::sp_mat & A, 
+arma::umat fit_dpsbm(const arma::sp_mat & A, 
                 const double gam0 = 1,  
                 const double alpha = 1, const double beta = 1,
                 const int niter = 50, const int Zcap = 20, 
