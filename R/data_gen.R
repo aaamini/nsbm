@@ -1,4 +1,5 @@
 library(nett)
+
 symmetrize = function(A) {
   (A + t(A))/2
 } 
@@ -45,7 +46,8 @@ generate_sparse_random_data = function(n = 50, J = 25, lambda = 10, K_tru = 3) {
 }
 
 generate_nathans_data = function(n = 40,J = 60) {
-  pm1 <- cbind(c(.9, .75, .5)
+require(igraph)
+    pm1 <- cbind(c(.9, .75, .5)
                , c(.75, .6, .25)
                , c(.5, .25, .1))
   pm2 <- cbind(c(.8, .1, .3)

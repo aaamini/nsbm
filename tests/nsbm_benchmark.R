@@ -13,9 +13,10 @@ source("R/nsbm_wrapper.R")
 
 # simulation ----
 set.seed(1234)
-niter = 100
+niter = 300
 K = L = 10
-n_cores = 3
+n_cores = 12
+nreps = 10
 sparse_data = T
 
 if (!sparse_data) {
@@ -24,20 +25,32 @@ if (!sparse_data) {
   n = 100; J = 16; lambda = 15; K_tru = 3
 }
 
-nreps = 10
+
 methods = list()
 methods[["C++ (collapsed)"]] = function(A) {
   fit_nsbm(A, K, L, niter, collapsed = T)
   # model =  new(NestedSBM, A, K, L)
-  # model$run_gibbs(niter) 
+  # model$run_gibbs(niter)
 }
 
 methods[["Splice"]] = function(A) {
   splice_sampler(A, K, L, ns = niter, monitor = TRUE)
 }
 
-methods[["C++ (non-collapsed)"]] = function(A) {
-  fit_nsbm(A, K, L, niter)
+methods[["C++ (non-collapsed v1)"]] = function(A) {
+  fit_nsbm(A, K, L, niter, collapsed = F, version = 1)
+  # model =  new(NestedSBM, A, K, L)
+  # model$run_gibbs_via_eta(niter) 
+}
+
+methods[["C++ (non-collapsed v2)"]] = function(A) {
+  fit_nsbm(A, K, L, niter, collapsed = F, version = 2)
+  # model =  new(NestedSBM, A, K, L)
+  # model$run_gibbs_via_eta(niter) 
+}
+
+methods[["C++ (non-collapsed v3)"]] = function(A) {
+  fit_nsbm(A, K, L, niter, collapsed = F, version = 3)
   # model =  new(NestedSBM, A, K, L)
   # model$run_gibbs_via_eta(niter) 
 }
@@ -56,7 +69,7 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
         out = generate_nathans_data(n = n, J = J) 
     } else {
         # out = generate_sparse_random_data(n = n, J = J, lambda = lambda, K_tru = K_tru) 
-      out = gen_rand_nsbm(n=n, K = K_tru, J = J, zeta=0.75, lambda = lambda)
+      out = gen_rand_nsbm(n=n, K = K_tru, J = J, gam = 0.3, zeta=0.5, lambda = lambda)
     }
     A = out$A
     z_tru = out$z
@@ -78,7 +91,7 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
 
 
 state_str =  sprintf("J = %d, n = %d, nreps = %d", J, n, nreps)
-p = res %>% 
+p1 = res %>% 
   group_by(iter, method) %>% summarise(z_nmi = mean(z_nmi)) %>% 
   ggplot(aes(x = iter, y = z_nmi, color = method)) + 
   # geom_line(aes(size = method), alpha = 0.5) +
@@ -92,14 +105,15 @@ p = res %>%
     # legend.text = ggplot2::element_text(size=18),
   ) + 
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
-  ylab("z NMI") + xlab("Iteration") + labs(title = state_str)
+  ylab("z-NMI") + xlab("Iteration") + labs(title = state_str)
 
-print(p)
+# print(p1)
 
 # tag = "sparse"
-# ggsave(sprintf("test_non_collapsed_%s_%s.png", state_str, tag), width = 6, height=5)
+#tag = "nathan"
+#ggsave(sprintf("test_non_collapsed_z_nmi_%s_%s.png", state_str, tag), width = 6, height=5)
 
-p = res %>% 
+p2 = res %>% 
   group_by(iter, method) %>% summarise(xi_nmi = mean(xi_nmi)) %>% 
   ggplot(aes(x = iter, y = xi_nmi, color = method)) + 
   # geom_line(aes(size = method), alpha = 0.5) +
@@ -113,9 +127,17 @@ p = res %>%
     # legend.text = ggplot2::element_text(size=18),
   ) + 
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
-  ylab("xi NMI") + xlab("Iteration") + labs(title = state_str)
+  ylab("xi-NMI") + xlab("Iteration") + labs(title = state_str)
 
-print(p)
+# print(p2)
+
+library(patchwork)
+print(p1 + p2)
+tag = "sparse"
+#tag = "nathan"
+ggsave(sprintf("test_many_v_%s_%s.png", state_str, tag), width = 10, height=5)
+
+#ggsave(sprintf("test_non_collapsed_xi_nmi_%s_%s.png", state_str, tag), width = 6, height=5)
 
 print(knitr::kable( res %>% 
                       filter(iter > niter / 2) %>% 

@@ -9,10 +9,10 @@ library(ggplot2)
 library(dplyr)
 
 set.seed(1234)
-n = 400
+n = 200
 K = 2
 L = 5
-J = 20
+J = 24
 lambda = 30
 zeta = .3
 gam = .1
@@ -21,11 +21,12 @@ n_cores = 32
 niter = 100
 
 out = gen_rand_nsbm(n=n, K=K, L=L, J=J,  lambda=lambda, gam = gam, zeta=zeta)
+out = generate_nathans_data(n = n, J = J)
 A = out$A
 z_tru = out$z
 xi_tru = out$xi
 
-out = fit_nsbm(A, 15, 15, niter, collapsed = F)
+out = fit_nsbm(A, 15, 15, niter, collapsed = F, version = 3)
 z = get_map_labels(out$z)$labels
 xi = get_map_labels(out$xi)$labels
 nett::compute_mutual_info(z, z_tru)
@@ -39,18 +40,21 @@ hsbm::get_slice_nmi(out$xi, xi_tru)
 xi = lapply(1:J, function(j) get_map_labels( fit_dpsbm(A[[j]], Zcap = L) )$label)
 hsbm::get_slice_nmi(xi, xi_tru)
 
-model =  new(NestedSBM, A, J, L)
+# 
+model =  new(NestedSBM, A, J, 15)
+
 model$z = 0:(J-1)
 model$z
 # model$w0 = 1
 # model$pi0 = 1
-colSums(model$w)
+# colSums(model$w)
 out = model$run_gibbs_via_eta(100)
 out$xi  = lapply(out$xi, function(xi) lapply(xi, function(x) x + 1))
 xi = get_map_labels(out$xi)$labels
 z = get_map_labels(out$z)$labels
 # xi
 hsbm::get_slice_nmi(xi, xi_tru)
+nett::compute_mutual_info(z, z_tru)
 
 #model$set_beta_params(1, 1)
 #model$w0 = 0.001

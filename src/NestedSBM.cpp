@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "sampling.h"
 #include "beta_calcs.h"
+#include "dpsbm.h"
 
 using namespace Rcpp;
 
@@ -208,10 +209,15 @@ class NestedSBM {
             z(j) = sample_index(safe_exp(log_prob)); 
                         
         }
-        // <--- end of updates for non-collapsed sampler ---
+        
+        void set_xi_to_dpsbm_labels(const int niter) {
+            for (int j=0; j < J; j++) {
+                xi[j] = fit_dpsbm(A[j], w0, beta_params.alpha, beta_params.beta, niter, L).col(niter-1)-1;
+            }
+        }
     
         // List run_gibbs(const int niter = 100, const bool init_count_tensors = true) {
-        List run_gibbs_via_eta(const int niter) {
+        List run_gibbs_via_eta(const int niter, const int version) {
             // Run full Gibbs updates for "niter" iterations and record label history
             std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
             arma::umat z_hist(J, niter+1);
@@ -219,21 +225,55 @@ class NestedSBM {
             xi_hist[0] = xi;
             z_hist.col(0) = z + 1;
           
+            
+            
             // comp_count_tensors();
-            for (int iter = 0; iter < niter; iter++) {           
-                update_eta(); // also updates count tensors m and mbar 
-                update_pi();
-                update_w();
+            for (int iter = 0; iter < niter; iter++) {   
 
-                for (int j = 0; j < J; j++) {
-                    update_z_element_via_eta(j);
-                    for (int s = 0; s < n(j); s++) {
-                        update_xi_element_via_eta(j, s);
-                    } // s
-                } // j
+                switch (version) {
+                    case 1:
+                        update_eta(); // also updates count tensors m and mbar 
+                        for (int j = 0; j < J; j++) {
+                            update_z_element_via_eta(j);
+                            for (int s = 0; s < n(j); s++) {
+                                update_xi_element_via_eta(j, s);
+                            } // s
+                        } // j
 
-                // update_pi();
-                // update_w();
+                        update_pi();
+                        update_w();
+                        break;
+
+                    case 2:
+                        update_eta(); // also updates count tensors m and mbar 
+                        update_pi();
+                        update_w();
+                    
+                        for (int j = 0; j < J; j++) {
+                            update_z_element_via_eta(j);
+                            for (int s = 0; s < n(j); s++) {
+                                update_xi_element_via_eta(j, s);
+                            } // s
+                            
+                        } // j
+                        break;
+
+                    case 3:
+                        if (iter == 0) set_xi_to_dpsbm_labels(50);
+                        update_eta(); // also updates count tensors m and mbar 
+                        for (int j = 0; j < J; j++) {
+                            update_z_element_via_eta(j);
+                            for (int s = 0; s < n(j); s++) {
+                                update_xi_element_via_eta(j, s);
+                            } // s
+                        } // j
+
+                        update_pi();
+                        update_w();
+                        break;
+
+                }        
+               
 
                 // Rcpp::print(wrap(z.t()));
                 xi_hist[iter+1] = xi;
@@ -246,7 +286,7 @@ class NestedSBM {
             );
         }
 
-
+        // <--- end of updates for non-collapsed sampler ---
 
         void print() {
             Rcout << "- Nested SMB Model - \n"
