@@ -3,6 +3,7 @@ library(igraph)
 library(ggplot2)
 library(dplyr)
 library(parallel)
+library(patchwork)
 #Rcpp::sourceCpp("src/NestedSBM.cpp", verbose = T)
 #setMethod("show", "Rcpp_NestedSBM", function(object) object$print())
 source("R/nSBM_functions.R")
@@ -131,7 +132,6 @@ p2 = res %>%
 
 # print(p2)
 
-library(patchwork)
 print(p1 + p2)
 tag = "sparse"
 #tag = "nathan"

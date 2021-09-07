@@ -7,28 +7,51 @@ library(ggplot2)
 library(dplyr)
 
 n = 100
-K = 2
-L = 5
-J = 20
+K_tru = 2
+L_tru = 5
+J = 40
+K = L = 10  # what we use to truncate 
 lambda = 30
 gam = .1
-nreps = 10
+nreps = 20
 n_cores = 32
 niter = 100
-
 
 runs = expand.grid(rep = 1:nreps, zeta = seq(0,1,length.out=8))
 
 methods = list()
-methods[["C++ (non-collapsed)"]] = function(A) {
-    out = fit_nsbm(A, K, L, niter, collapsed = F)
-    list(z = get_map_labels(out$z)$labels,
-        xi = get_map_labels(out$xi)$labels)
+# methods[["C++ (non-collapsed)"]] = function(A) {
+#     out = fit_nsbm(A, K, L, niter, collapsed = F)
+#     list(z = get_map_labels(out$z)$labels,
+#         xi = get_map_labels(out$xi)$labels)
+# }
+
+methods[["C++ (non-collapsed v1)"]] = function(A) {
+  out = fit_nsbm(A, K, L, niter, collapsed = F, version = 1)
+  list(z = get_map_labels(out$z)$labels,
+       xi = get_map_labels(out$xi)$labels)
 }
 
-methods[["spec"]] = function(A) {
-    spec_net_clust(A, K = K, L = L)
+methods[["C++ (non-collapsed v2)"]] = function(A) {
+  out = fit_nsbm(A, K, L, niter, collapsed = F, version = 2)
+  list(z = get_map_labels(out$z)$labels,
+       xi = get_map_labels(out$xi)$labels)
 }
+
+methods[["C++ (non-collapsed v3)"]] = function(A) {
+  out = fit_nsbm(A, K, L, niter, collapsed = F, version = 3)
+  list(z = get_map_labels(out$z)$labels,
+       xi = get_map_labels(out$xi)$labels)
+}
+
+
+# Use true K and L for spec
+methods[["spec"]] = function(A) {
+    spec_net_clust(A, K = K_tru, L = L_tru)
+}
+# methods[["spec (trunc K-L)"]] = function(A) {
+#   spec_net_clust(A, K = K, L = L)
+# }
 
 mtd_names = names(methods)
 
@@ -37,7 +60,7 @@ res = do.call(rbind, mclapply(1:nrow(runs), function(ri) {
 #res = do.call(rbind, lapply(1:nrow(runs), function(ri) {
     zeta = runs[ri, "zeta"]
     rep = runs[ri, "rep"]
-    out = gen_rand_nsbm(n=n, K=K, L=L, J=J,  lambda=lambda, gam = gam, zeta=zeta)
+    out = gen_rand_nsbm(n=n, K=K_tru, L=L_tru, J=J,  lambda=lambda, gam = gam, zeta=zeta)
     A = out$A
     z_tru = out$z
     xi_tru = out$xi
@@ -55,12 +78,13 @@ res = do.call(rbind, mclapply(1:nrow(runs), function(ri) {
     }))
 }, mc.cores = n_cores))
 #}))   
+ggsave(sprintf("systematic_%s_%s.png", state_str, tag), width = 10, height=5)
 
 
-state_str =  sprintf("J = %d, n = %d, nreps = %d", J, n, nreps)
+state_str =  sprintf("lam = %d, J = %d, n = %d, nreps = %d", 
+                     lambda, J, n, nreps)
 
-
-p = res %>% 
+p1 = res %>% 
   group_by(zeta, method) %>% summarise(xi_nmi = mean(xi_nmi)) %>% 
   ggplot(aes(x = zeta, y = xi_nmi, color = method)) + 
   # geom_line(aes(size = method), alpha = 0.5) +
@@ -76,10 +100,7 @@ p = res %>%
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   ylab("xi-NMI") + xlab("zeta") + labs(title = state_str)
 
-print(p)
-
-
-p = res %>% 
+p2 = res %>% 
   group_by(zeta, method) %>% summarise(z_nmi = mean(z_nmi)) %>% 
   ggplot(aes(x = zeta, y = z_nmi, color = method)) + 
   # geom_line(aes(size = method), alpha = 0.5) +
@@ -95,6 +116,8 @@ p = res %>%
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   ylab("z-NMI") + xlab("zeta") + labs(title = state_str)
 
-print(p)
 
-
+print(p1 + p2)
+tag = ""
+#tag = "nathan"
+ggsave(sprintf("systematic_%s_%s.png", state_str, tag), width = 10, height=5)
