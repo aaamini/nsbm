@@ -16,7 +16,7 @@ source("R/nsbm_wrapper.R")
 set.seed(1234)
 niter = 300
 K = L = 10
-n_cores = 12
+n_cores = 32
 nreps = 10
 sparse_data = T
 
@@ -91,7 +91,7 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
 # }))    
 
 
-state_str =  sprintf("J = %d, n = %d, nreps = %d", J, n, nreps)
+state_str =  sprintf("J = %d, n = %d, nreps = %d, lambda = %d", J, n, nreps, lambda)
 p1 = res %>% 
   group_by(iter, method) %>% summarise(z_nmi = mean(z_nmi)) %>% 
   ggplot(aes(x = iter, y = z_nmi, color = method)) + 
