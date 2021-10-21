@@ -13,7 +13,7 @@ gen_rand_nsbm = function(n = 50, J = 10,
                          K = 3, L = 7, 
                          lambda = 10, 
                          gam = 0.3, zeta = 0.1, 
-                         pri = rep(1, L) / L) {
+                         pri = rep(1, L) / L, sort_z = F) {
   
   # Create connectivity matrices eta[[j]]
   eta = lapply(1:K, function(j) (1-gam)*rsymperm(L) + gam*runifmat(L))
@@ -25,6 +25,7 @@ gen_rand_nsbm = function(n = 50, J = 10,
   
   # Sample the labels, z, xi and adjacency matrices A[[j]]
   z = sample(1:K, J, replace = T)
+  if (sort_z) z = sort(z)
   xi = A = vector("list", J)
   for (j in 1:J) {
     xi[[j]] = sample(L, n, replace = T, )
