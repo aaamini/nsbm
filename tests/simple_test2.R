@@ -12,7 +12,7 @@ set.seed(1234)
 n = 200
 K = 2
 L = 5
-J = 24
+J = 48
 lambda = 30
 zeta = .3
 gam = .1
@@ -20,11 +20,12 @@ nreps = 10
 n_cores = 32
 niter = 100
 
-out = gen_rand_nsbm(n=n, K=K, L=L, J=J,  lambda=lambda, gam = gam, zeta=zeta)
-out = generate_nathans_data(n = n, J = J)
+out = gen_rand_nsbm(n=n, K=K, L=L, J=J,  lambda=lambda, gam = gam, zeta=zeta, sort_z = T)
+#out = generate_nathans_data(n = n, J = J)
 A = out$A
 z_tru = out$z
 xi_tru = out$xi
+eta = out$eta
 
 out = fit_nsbm(A, 15, 15, niter, collapsed = F, version = 3)
 z = get_map_labels(out$z)$labels
@@ -33,7 +34,7 @@ nett::compute_mutual_info(z, z_tru)
 hsbm::get_slice_nmi(xi, xi_tru)
 hsbm::seq_nmi_plot(out$xi)
 # 
-out = spec_net_clust(A, K = K, L = L)
+out = spec_net_clust_naive(A, K = K, L = L)
 nett::compute_mutual_info(out$z, z_tru)
 hsbm::get_slice_nmi(out$xi, xi_tru)
 # 

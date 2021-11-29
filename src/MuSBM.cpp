@@ -8,6 +8,7 @@
 
 using namespace Rcpp;
 
+
 struct BetaParameters {
     double alpha;
     double beta;
