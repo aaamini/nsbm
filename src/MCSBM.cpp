@@ -197,27 +197,29 @@ class MCSBM {
          void update_z_element(const int j, const int alt_value) {
             // arma::cube  m_old = m;
             // arma::cube  mbar_old = mbar;
-            arma::vec log_prob(K, arma::fill::zeros);
 
-            // int zj_old = z(j);
-            arma::uvec xi_j_freq = get_freq(xi[j], L);
+            if (R::runif(0,1) > prob) { // update according to Gibbs dynamic
+                arma::vec log_prob(K, arma::fill::zeros);
 
-            for (int r = 0; r < K; r++) {
-                for (int x = 0; x < L; x++) {
-                    for (int y = x; y < L; y++) {
-                        log_prob(r) += u(x,y,r) * m(x,y,j) + v(x,y,r)* N(x,y,j);
+                // int zj_old = z(j);
+                arma::uvec xi_j_freq = get_freq(xi[j], L);
+
+                for (int r = 0; r < K; r++) {
+                    for (int x = 0; x < L; x++) {
+                        for (int y = x; y < L; y++) {
+                            log_prob(r) += u(x,y,r) * m(x,y,j) + v(x,y,r)* N(x,y,j);
+                        }
                     }
+                    // log_prob(r) += arma::sum( arma::trimatu(temp.slice(k)).as_col() );
                 }
-                // log_prob(r) += arma::sum( arma::trimatu(temp.slice(k)).as_col() );
-            }
-            
-            log_prob += log(w.t() + perturb) * xi_j_freq;
-            log_prob += log(pi + perturb);
+                
+                log_prob += log(w.t() + perturb) * xi_j_freq;
+                log_prob += log(pi + perturb);
 
-            // update z(j)
-            if (R::runif(0,1) > prob) {
+                // update z(j)
+            
                 z(j) = sample_index(safe_exp(log_prob)); 
-            } else {
+            } else { // update using the provided alt_value
                 z[j] = alt_value;
             }
             // comp_count_tensors();
