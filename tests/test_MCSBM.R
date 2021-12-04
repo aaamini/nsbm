@@ -38,11 +38,15 @@ J = 100
 
 # lambda = NULL
 lambda = 30
-zeta = .3 # This does not matter
+zeta = .9 # try z = 0.3
 gam = .7
-nreps = 20
+nreps = 10
 n_cores = 32
 niter = 300
+
+nathan_data = F
+
+if (nathan_data) { L = 3 }
 
 methods = list()
 # methods[["SBM"]] = function(A, L, niter=100) {
@@ -56,10 +60,37 @@ methods = list()
 # }
 
 methods[["MCSBM"]] = function(A, K, L, niter=50) {
-  out = mix_mcsbm(A, K, L, 1, 1, 0.9, 1, niter, 3)
-  # mod = new(MCSBM, A, K, L, 1, 1, 0.9, 0.99)
-  # out = mod$run_gibbs(niter)
-  
+#    out = mix_mcsbm(A, K, L, 1, 1, 0.9, 1, niter, 3)
+  mod = new(MCSBM, A, K, L, 1, 1) #, 0.9, 0.99)
+  out = mod$run_gibbs(niter)
+#   
+   list(z = out$z, xi = lapply(out$xi, add_one_to_xi))
+}
+
+methods[["MCSBM-rnd"]] = function(A, K, L, niter=50) {
+  #    out = mix_mcsbm(A, K, L, 1, 1, 0.9, 1, niter, 3)
+  mod = new(MCSBM, A, K, L, 1, 1) #, 0.9, 0.99)
+  mod$rnd_prob = 0.9
+  mod$decay = .99
+  out = mod$run_gibbs(niter)
+  #   
+  list(z = out$z, xi = lapply(out$xi, add_one_to_xi))
+}
+
+methods[["MCSBM-mix"]] =  function(A, K, L, niter=50)  {
+  out = mix_mcsbm(A, K, L, 1, 1, decay = 0.95, sa_temp = 100, rnd_prob = 0.5, niter, 3)  
+  list(z = out$z, xi = lapply(out$xi, add_one_to_xi))
+}
+
+methods[["MCSBM-SA"]] = # fit_mcsbm
+ function(A, K, L, niter=50) {
+#  mod = new(MCSBM, A, K, L, 1, 1, 0, 0.95)
+  mod = new(MCSBM, A, K, L, 1, 1)
+  mod$rnd_prob = 0
+  mod$decay = 0.99
+  mod$sa_temp = 100
+  out = mod$run_gibbs(niter)
+
   list(z = out$z, xi = lapply(out$xi, add_one_to_xi))
 }
 
@@ -106,9 +137,14 @@ mtd_names = names(methods)
 
 res = do.call(rbind, mclapply(1:nreps, function(rep) {
 # res = do.call(rbind, lapply(1:nreps, function(rep) {
-  out = gen_rand_nsbm(n=n, K=K, L=L, J=J,  lambda=lambda, gam=gam, zeta=zeta, sort_z = T)
-  # out = generate_nathans_data(n = n, J = J)
-  # out = generate_nathans_data(n = n, J = J, lambda = lambda)
+  if (nathan_data) {
+    # out = generate_nathans_data(n = n, J = J)
+    # out = generate_nathans_data(n = n, J = J, lambda = lambda)
+    out = generate_nathans_data(n = n, J = J, K = K, lambda = lambda)  
+  }
+  else {
+    out = gen_rand_nsbm(n=n, K=K, L=L, J=J, lambda=lambda, gam=gam, zeta=zeta, sort_z = T)
+  }
   A = out$A
   z_tru = out$z
   xi_tru = out$xi
@@ -137,16 +173,21 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
 res = as_tibble(res) %>% mutate(rep = as.character(rep))
 # state_str =  sprintf("J = %d, n = %d, nr = %d, lam = %s, gam = %2.2f", 
 #                      J, n, nreps, if(is.null(lambda)) "nathan" else lambda, gam)
-state_str =  sprintf("J = %d, n = %d, nr = %d, lam = %s, K = %d", 
-                     J, n, nreps, if(is.null(lambda)) "nathan" else lambda, K)
+state_str =  sprintf("J = %d, n = %d, nr = %d, lam = %s, K = %d, L = %d", 
+                     J, n, nreps, if(is.null(lambda)) "NA" else lambda, K, L)
 
+if (nathan_data) {
+  state_str = sprintf("%s_nathan", state_str)
+} else {
+  state_str = sprintf("%s, zeta = %1.1f, gam = %1.1f", state_str, zeta, gam)
+}
 
 p1 = plot_paths_and_avg(res, xi_nmi) + ylab("xi-NMI") + labs(title = state_str) 
 p2 = plot_paths_and_avg(res, z_nmi, alpha_range = c(0.2, 1)) + ylab("z-NMI") # + labs(title = state_str)
 p3 = plot_paths_and_avg(res, matching_score) + ylab("Matching score") # + labs(title = state_str)
 
 print(p1 + p2 + p3)
-ggsave(sprintf("test_mcsbm_%s.png", state_str), width = 10, height=5)
+# ggsave(sprintf("test_mcsbm2_%s.png", state_str), width = 10, height=5)
 
 # p1 = res %>% 
 #   group_by(iter, method) %>% summarise(xi_nmi = mean(xi_nmi)) %>% 

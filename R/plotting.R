@@ -16,7 +16,7 @@ plot_paths_and_avg = function(res, col, alpha_range = c(0.25,1)) {
     ggplot(aes(x = iter, y = {{col}}, color = method, alpha = alpha)) +
     # scale_alpha_discrete(range = c(0.2, .9), guide="none") + 
     # geom_line(aes(size = method), alpha = 0.5) +
-    geom_line(aes(group = rep, size = size)) + 
+    geom_line(aes(group = interaction(rep, method), size = size)) + 
     scale_alpha( range = alpha_range, guide = 'none') +
     scale_size( range = c(0.5,1.2), guide = 'none') + 
     theme_minimal() +

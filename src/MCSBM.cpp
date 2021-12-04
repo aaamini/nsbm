@@ -48,21 +48,19 @@ class MCSBM {
         arma::ucube N; // N(x,y,j)
         
         BetaParameters beta_params;
-        double prob;
+        double rnd_prob;  // Random z-label probability
+        double sa_temp;  // Simulated Annealing Temperature 
         double decay;
         // double w0;
         // double pi0;
 
         // arma::vec z_log_prob_record; // for diagnostics
 
-        MCSBM(// const List A_,
-            const std::vector<arma::sp_mat>& A_, 
-            // const arma::uvec z_init, 
+        MCSBM(const std::vector<arma::sp_mat>& A_,
             const int K,
             const int L,
             const double alpha_eta, 
-            const double beta_eta,
-            const double prob, const double decay) : L{L}, K{K}, prob{prob}, decay{decay} {
+            const double beta_eta) : L{L}, K{K} { //, rnd_prob{rnd_prob}, decay{decay} {
 
             // initialize and allocate variables
             A = A_;
@@ -70,6 +68,9 @@ class MCSBM {
             J = A.size();
             n = arma::uvec(J);
             xi = std::vector<arma::uvec>(J);
+            sa_temp = 1;
+            rnd_prob = 0;
+            decay = 1;
 
             for (int j=0; j < J; j++) {
                 //n(j) = Rcpp::as<arma::sp_mat>(A[j]).n_rows;
@@ -115,19 +116,18 @@ class MCSBM {
             z = sample_int_vec(K, J);
         }
 
-
         void update_count_tensors() {
-            //List out = comp_blk_sums_and_sizes(Rcpp::as<arma::sp_mat>(A[0]), xi[0], L);
-            // m = arma::cube(L, L, K, arma::fill::zeros); // m tensor
-            // N = arma::cube(L, L, K, arma::fill::zeros); // N tensor
-
             for (int j=0; j < J; j++) {
-                List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
-                arma::mat lambda = out["lambda"];
-                arma::umat NN = out["NN"]; 
-                m.slice(j) += lambda;
-                N.slice(j) += NN;
+                update_count_tensor(j);
             }
+        }
+
+        void update_count_tensor(const int j) {
+            List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
+            arma::mat lambda = out["lambda"];
+            arma::umat NN = out["NN"]; 
+            m.slice(j) += lambda;
+            N.slice(j) += NN;
         }
 
         // Assumes that m and N are up-to-date
@@ -144,23 +144,7 @@ class MCSBM {
             for (int k = 0; k < K; k++) {
                 eta.slice(k) = symmat_rbeta(m_sum.slice(k) + beta_params.alpha, 
                                             N_sum.slice(k) - m_sum.slice(k) + beta_params.beta);
-                // a.slice(k) = log(eta.slice(k) / (1-eta.slice(k)) + perturb);
-                // b.slice(k) = log(1-eta.slice(k) + perturb);
             }  
-            // // Update the eta-related tensors
-            // arma::mat m(L, L, arma::fill::zeros); 
-            // arma::mat mbar(L, L, arma::fill::zeros);
-
-            // for (int j=0; j < J; j++) {
-            //     List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
-            //     arma::mat lambda = out["lambda"];
-            //     arma::umat NN = out["NN"]; 
-            //     m += lambda;
-            //     mbar += NN - lambda;
-            // }
-
-            // eta = symmat_rbeta(m + beta_params.alpha, mbar + beta_params.beta);
-
             u = log(eta/(1-eta) + perturb);
             v = log(1-eta + perturb);
         }
@@ -170,7 +154,7 @@ class MCSBM {
                 arma::vec nn(L, arma::fill::zeros);
                 for (int j = 0; j < xi.size(); j++) {
                     if (z(j) == k) {
-                        nn +=  arma::conv_to<arma::vec>::from( get_freq(xi[j], L) );
+                        nn += arma::conv_to<arma::vec>::from( get_freq(xi[j], L) );
                     }  
                 }  
                 w.col(k) = rdirichlet(nn + 1);
@@ -195,10 +179,8 @@ class MCSBM {
          
          // Assumes update m and N tensors
          void update_z_element(const int j, const int alt_value) {
-            // arma::cube  m_old = m;
-            // arma::cube  mbar_old = mbar;
 
-            if (R::runif(0,1) > prob) { // update according to Gibbs dynamic
+            if (R::runif(0,1) > rnd_prob) { // update according to Gibbs dynamic
                 arma::vec log_prob(K, arma::fill::zeros);
 
                 // int zj_old = z(j);
@@ -218,7 +200,7 @@ class MCSBM {
 
                 // update z(j)
             
-                z(j) = sample_index(safe_exp(log_prob)); 
+                z(j) = sample_index(safe_exp(log_prob / sa_temp)); 
             } else { // update using the provided alt_value
                 z[j] = alt_value;
             }
@@ -251,12 +233,14 @@ class MCSBM {
             } // j
         }
 
-        // void run_gibbs_step() {
-        //     run_gibbs_step_with_z_alt(sample_int(K));
-        // }
+        void update_rnd_prob() {
+             rnd_prob *= decay;  
+        }
 
-        
-       
+        void update_sa_temp() {
+            sa_temp = std::max(sa_temp*decay, 1.0);
+        }
+
        // std::vector<std::vector<arma::uvec>> 
        List run_gibbs(const int niter) {
             // Run full Gibbs updates for "niter" iterations and record label history
@@ -267,31 +251,10 @@ class MCSBM {
             z_hist.col(0) = z + 1;       
             
             // update_count_tensors(); 
-            // comp_count_tensors();
             for (int iter = 0; iter < niter; iter++) {
-                // update_count_tensors();
-                // update_eta();
-                // update_w();
-                // update_pi();
-
-                // for (int j = 0; j < J; j++) {
-                //     for (int s = 0; s < n(j); s++) {
-                //         update_xi_element(j, s);
-                //     } // s             
-                //     // if (R::runif(0,1) > prob) {
-                //     update_z_element(j, sample_int(K));
-                //     // } else {
-                //     //     z[j] = sample_int(K);
-                //     // }
-                // } //
                 run_gibbs_step(sample_int_vec(K, J)); 
-                // if (iter <= niter / 2) {
-                    prob *= decay;  
-                // } else {
-                //    prob = 0;
-                //}
-
-                
+                update_sa_temp();
+                update_rnd_prob();
               
                 // Rcpp::print(wrap(z.t()));
                 z_hist.col(iter+1) = z + 1;
@@ -310,29 +273,30 @@ class MCSBM {
 };
 
 // [[Rcpp::export]]
-
-
-
 List mix_mcsbm(const std::vector<arma::sp_mat>& A, 
             const int K,
             const int L,
             const double alpha_eta, 
             const double beta_eta,
-            const double prob, 
             const double decay, 
+            const double sa_temp, 
+            const double rnd_prob, 
             const int niter,
             const int n_models = 3) {
     
     
-    std::vector<MCSBM> models(n_models, MCSBM(A, K, L, alpha_eta, beta_eta, prob, decay));
+    std::vector<MCSBM> models(n_models, MCSBM(A, K, L, alpha_eta, beta_eta));
   
     for (auto &model: models) {
+        model.rnd_prob = rnd_prob;
+        model.decay = decay;
+        model.sa_temp = sa_temp;
         model.set_xi_to_random_labels();
         model.set_z_to_random_labels();
     }
   
-    // MCSBM mod1(A, K, L, alpha_eta, beta_eta, prob, decay);
-    // MCSBM mod2(A, K, L, alpha_eta, beta_eta, prob, decay);
+    // MCSBM mod1(A, K, L, alpha_eta, beta_eta, rnd_prob, decay);
+    // MCSBM mod2(A, K, L, alpha_eta, beta_eta, rnd_prob, decay);
     // xi_hist[0] = mod1.xi;
     // z_hist.col(0) = mod1.z + 1;   
 
@@ -340,6 +304,7 @@ List mix_mcsbm(const std::vector<arma::sp_mat>& A,
     int J = A.size();
     std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
     arma::umat z_hist(J, niter+1);
+
     xi_hist[0] = models[0].xi;
     z_hist.col(0) = models[0].z + 1;       
     
@@ -363,13 +328,12 @@ List mix_mcsbm(const std::vector<arma::sp_mat>& A,
         //        alt_z[j] = models[alt_model_index].z[j];
         //    } 
         //    models[r].run_gibbs_step(alt_z);
+
            int alt_model_index = sample_except_r(n_models, r); 
            models[r].run_gibbs_step(models[alt_model_index].z);
-           
-           models[r].prob *= decay;
-        //    models[r].eta *= .5;
-        //    models[r].u = log(models[r].eta/(1-models[r].eta) + 1e-11);
-        //    models[r].v = log(1-models[r].eta + 1e-11);
+           models[r].update_sa_temp();
+           models[r].update_rnd_prob();
+           // models[r].rnd_prob *= decay;
         }        
         
         z_hist.col(iter+1) = models[0].z + 1;
@@ -386,17 +350,10 @@ List mix_mcsbm(const std::vector<arma::sp_mat>& A,
     
 }
 
-// void test_nsbm_cpp(List A, const int K, const int L) {
-
-//     MCSBM mynsbm(A, K, L);
-
-//     mynsbm.run_gibbs(100);
-// }
 
 RCPP_MODULE(sbm_module) {
       class_<MCSBM>("MCSBM")
-      // .constructor<List, int, double, double>()
-      .constructor<std::vector<arma::sp_mat>, int, int, double, double, double, double>()
+      .constructor<std::vector<arma::sp_mat>, int, int, double, double>()
       .field("A", &MCSBM::A)
       .field("J", &MCSBM::J)
       .field("K", &MCSBM::K)
@@ -409,7 +366,8 @@ RCPP_MODULE(sbm_module) {
       .field("eta", &MCSBM::eta)
       .field("m", &MCSBM::m)
       .field("N", &MCSBM::N)
-      .field("prob", &MCSBM::prob)
+      .field("rnd_prob", &MCSBM::rnd_prob)
+      .field("sa_temp", &MCSBM::sa_temp)
       .field("decay", &MCSBM::decay)
       .method("set_beta_params", &MCSBM::set_beta_params)
 //      .method("print", &MCSBM::print)
