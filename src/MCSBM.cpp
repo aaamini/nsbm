@@ -350,7 +350,6 @@ List mix_mcsbm(const std::vector<arma::sp_mat>& A,
     
 }
 
-
 RCPP_MODULE(sbm_module) {
       class_<MCSBM>("MCSBM")
       .constructor<std::vector<arma::sp_mat>, int, int, double, double>()

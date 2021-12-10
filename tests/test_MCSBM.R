@@ -187,7 +187,7 @@ p2 = plot_paths_and_avg(res, z_nmi, alpha_range = c(0.2, 1)) + ylab("z-NMI") # +
 p3 = plot_paths_and_avg(res, matching_score) + ylab("Matching score") # + labs(title = state_str)
 
 print(p1 + p2 + p3)
-# ggsave(sprintf("test_mcsbm2_%s.png", state_str), width = 10, height=5)
+ggsave(sprintf("test_mcsbm_%s.png", state_str), width = 10, height=5)
 
 # p1 = res %>% 
 #   group_by(iter, method) %>% summarise(xi_nmi = mean(xi_nmi)) %>% 
