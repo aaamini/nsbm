@@ -268,13 +268,14 @@ class NSBM {
 
         void run_gibbs_step(const arma::uvec& alt_vec) {
 
-            update_count_tensors();
+            // update_count_tensors();
             update_eta();
             
             for (int j = 0; j < J; j++) {
                 for (int s = 0; s < n(j); s++) {
                     update_xi_element(j, s);
-                } // s             
+                } // s
+                update_count_tensor(j);
                 update_z_element(j, alt_vec[j]);
             } // j
 
@@ -299,7 +300,7 @@ class NSBM {
             xi_hist[0] = xi;
             z_hist.col(0) = z + 1;       
             
-            // update_count_tensors(); 
+            update_count_tensors(); 
             for (int iter = 0; iter < niter; iter++) {
                 run_gibbs_step(sample_int_vec(K, J)); 
                 update_sa_temp();

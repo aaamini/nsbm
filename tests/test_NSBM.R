@@ -27,7 +27,7 @@ lambda = 30
 # lambda = 30
 zeta = .9 # try z = 0.3
 gam = .7
-nreps = 8
+nreps = 32
 n_cores = 32
 niter = 100
 
@@ -37,10 +37,10 @@ if (nathan_data) {  Ltru = 3 }
 
 methods = list()
 
- aa = 5
- bb = 200
-#aa = 1
-#bb = 1
+aa = 5
+bb = 200
+# aa = 1
+# bb = 1
 w0 = 0
 pi0 = 1
 
@@ -165,8 +165,8 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
 res = as_tibble(res) %>% mutate(rep = as.character(rep))
 # state_str =  sprintf("J = %d, n = %d, nr = %d, lam = %s, gam = %2.2f", 
 #                      J, n, nreps, if(is.null(lambda)) "nathan" else lambda, gam)
-state_str =  sprintf("J = %d, n = %d, nr = %d, lam = %s, K = %d, L = %d", 
-                     J, n, nreps, if(is.null(lambda)) "NA" else lambda, K, L)
+state_str =  sprintf("J = %d, n = %d, nr = %d, lam = %s, K0 = %d, L0 = %d, K = %d, L = %d, (a,b) = (%2.1f, %2.1f)", 
+                     J, n, nreps, if(is.null(lambda)) "NA" else lambda, Ktru, Ltru, K, L, aa, bb)
 
 if (nathan_data) {
   state_str = sprintf("%s_nathan", state_str)
@@ -181,4 +181,4 @@ p3 = plot_paths_and_avg(res, matching_score) + ylab("Matching score") # + labs(t
 print(p1 + p2 + p3)
 
 res %>% group_by(method) %>% summarise(avg_time = mean(elapsed_time))
-# ggsave(sprintf("test_mcsbm_%s.png", state_str), width = 10, height=5)
+ggsave(sprintf("test_nsbm3_%s.png", state_str), width = 10, height=5)
