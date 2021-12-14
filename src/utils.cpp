@@ -140,7 +140,7 @@ arma::uvec fast_agg_u(arma::uvec x, arma::uvec z, int K) {
 // counts the occurence frequency of integers 0, 1, 2, ..., K-1 in z
 // the numbers in z should be in [0, K-1], otherwise an error occurs
 // [[Rcpp::export]]
-arma::uvec get_freq(arma::uvec z, int K) { 
+arma::uvec get_freq(const arma::uvec& z, const int K) { 
   int n = z.n_elem;
   // int K = max(z)+1;
   arma::uvec freq(K,  arma::fill::zeros);

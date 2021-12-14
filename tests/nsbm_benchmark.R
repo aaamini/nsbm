@@ -34,9 +34,9 @@ methods[["C++ (collapsed)"]] = function(A) {
   # model$run_gibbs(niter)
 }
 
-methods[["Splice"]] = function(A) {
-  splice_sampler(A, K, L, ns = niter, monitor = TRUE)
-}
+# methods[["Splice"]] = function(A) {
+#   splice_sampler(A, K, L, ns = niter, monitor = TRUE)
+# }
 
 methods[["C++ (non-collapsed v1)"]] = function(A) {
   fit_nsbm(A, K, L, niter, collapsed = F, version = 1)

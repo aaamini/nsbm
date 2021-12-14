@@ -9,7 +9,8 @@ using namespace Rcpp;
 
 int find_tunc(arma::vec beta, double threshold);
 
-arma::uvec get_freq(arma::uvec z, int K);
+// arma::uvec get_freq(arma::uvec z, int K);
+arma::uvec get_freq(const arma::uvec& z, const int K);
 arma::uvec get_up_freq(arma::uvec freq);
 
 arma::umat get_freq_minus_self(arma::uvec z, int K);

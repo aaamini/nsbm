@@ -3,6 +3,7 @@ source("R/inference.R")
 source("R/competing_methods.R")
 source("R/matching.R")
 source("R/plotting.R")
+source("R/nsbm_wrapper.R")
 library(parallel)
 library(ggplot2)
 library(dplyr)
@@ -11,56 +12,72 @@ library(Matrix)
 library(RcppHungarian)
 library(patchwork)
 
-Rcpp::sourceCpp("src/MCSBM.cpp", verbose = T)
+# Rcpp::sourceCpp("src/MCSBM.cpp", verbose = T)
+Rcpp::sourceCpp("src/NSBM.cpp", verbose = T)
 # Rcpp::sourceCpp("src/SBM.cpp", verbose = T)
 
 # set.seed(1235)
 n = 100
-K = 2
-L = 3
-J = 100
+Ktru = 2
+Ltru = 3
+K = L = 10
+J = 50
 
-# lambda = NULL
 lambda = 30
+# lambda = 30
 zeta = .9 # try z = 0.3
 gam = .7
-nreps = 10
+nreps = 8
 n_cores = 32
-niter = 300
+niter = 100
 
 nathan_data = T
 
-if (nathan_data) { L = 3 }
+if (nathan_data) {  Ltru = 3 }
 
 methods = list()
 
-methods[["MCSBM"]] = function(A, K, L, niter=50) {
+ aa = 5
+ bb = 200
+#aa = 1
+#bb = 1
+w0 = 0
+pi0 = 1
+
+methods[["NSBM"]] = function(A, K, L, niter=50) {
 #    out = mix_mcsbm(A, K, L, 1, 1, 0.9, 1, niter, 3)
-  mod = new(MCSBM, A, K, L, 1, 1) #, 0.9, 0.99)
+  mod = new(NSBM, A, K, L, aa, bb, w0, pi0) #, 0.9, 0.99)
   out = mod$run_gibbs(niter)
 #   
    list(z = out$z, xi = lapply(out$xi, add_one_to_xi))
 }
 
-methods[["MCSBM-rnd"]] = function(A, K, L, niter=50) {
-  #    out = mix_mcsbm(A, K, L, 1, 1, 0.9, 1, niter, 3)
-  mod = new(MCSBM, A, K, L, 1, 1) #, 0.9, 0.99)
-  mod$rnd_prob = 0.9
-  mod$decay = .99
-  out = mod$run_gibbs(niter)
-  #   
-  list(z = out$z, xi = lapply(out$xi, add_one_to_xi))
-}
+# methods[["C++ (non-collapsed v2)"]] = function(A, K, L, niter=50) {
+#   fit_nsbm(A, K, L, niter, collapsed = F, version = 2)
+#   # model =  new(NestedSBM, A, K, L)
+#   # model$run_gibbs_via_eta(niter) 
+# }
 
-methods[["MCSBM-mix"]] =  function(A, K, L, niter=50)  {
-  out = mix_mcsbm(A, K, L, 1, 1, decay = 0.95, sa_temp = 100, rnd_prob = 0.5, niter, 3)  
-  list(z = out$z, xi = lapply(out$xi, add_one_to_xi))
-}
 
-methods[["MCSBM-SA"]] = # fit_mcsbm
+# methods[["NSBM-rnd"]] = function(A, K, L, niter=50) {
+#   #    out = mix_mcsbm(A, K, L, 1, 1, 0.9, 1, niter, 3)
+#   mod = new(NSBM, A, K, L, aa, bb, w0, pi0) #, 0.9, 0.99)
+#   mod$rnd_prob = 0.9
+#   mod$decay = .99
+#   out = mod$run_gibbs(niter)
+#   #   
+#   list(z = out$z, xi = lapply(out$xi, add_one_to_xi))
+# }
+
+# methods[["NSBM-mix"]] =  function(A, K, L, niter=50)  {
+#   out = mix_nsbm(A, K, L, 1, 1, 1, 1, decay = 0.95, sa_temp = 100, rnd_prob = 0.5, niter, 3)  
+#   list(z = out$z, xi = lapply(out$xi, add_one_to_xi))
+# }
+
+methods[["NSBM-SA"]] = # fit_mcsbm
  function(A, K, L, niter=50) {
 #  mod = new(MCSBM, A, K, L, 1, 1, 0, 0.95)
-  mod = new(MCSBM, A, K, L, 1, 1)
+  mod = new(NSBM, A, K, L, aa, bb, w0, pi0)
   mod$rnd_prob = 0
   mod$decay = 0.99
   mod$sa_temp = 100
@@ -115,10 +132,10 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
   if (nathan_data) {
     # out = generate_nathans_data(n = n, J = J)
     # out = generate_nathans_data(n = n, J = J, lambda = lambda)
-    out = generate_nathans_data(n = n, J = J, K = K, lambda = lambda)  
+    out = generate_nathans_data(n = n, J = J, K = Ktru, lambda = lambda)  
   }
   else {
-    out = gen_rand_nsbm(n=n, K=K, L=L, J=J, lambda=lambda, gam=gam, zeta=zeta, sort_z = T)
+    out = gen_rand_nsbm(n=n, K=Ktru, L=Ltru, J=J, lambda=lambda, gam=gam, zeta=zeta, sort_z = T)
   }
   A = out$A
   z_tru = out$z
