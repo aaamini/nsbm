@@ -19,7 +19,7 @@ Rcpp::sourceCpp("src/NSBM.cpp", verbose = T)
 # set.seed(1235)
 n = 100
 Ktru = 2
-Ltru = 3
+Ltru = 5
 K = L = 10
 J = 50
 
@@ -31,7 +31,7 @@ nreps = 32
 n_cores = 32
 niter = 100
 
-nathan_data = T
+nathan_data = F
 
 if (nathan_data) {  Ltru = 3 }
 
@@ -135,7 +135,8 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
     out = generate_nathans_data(n = n, J = J, K = Ktru, lambda = lambda)  
   }
   else {
-    out = gen_rand_nsbm(n=n, K=Ktru, L=Ltru, J=J, lambda=lambda, gam=gam, zeta=zeta, sort_z = T)
+    # out = gen_rand_nsbm(n=n, K=Ktru, L=Ltru, J=J, lambda=lambda, gam=gam, zeta=zeta, sort_z = T)
+    out = gen_rand_graphon(n = n, J = J, L = Ltru, std = 5)    
   }
   A = out$A
   z_tru = out$z
@@ -181,4 +182,4 @@ p3 = plot_paths_and_avg(res, matching_score) + ylab("Matching score") # + labs(t
 print(p1 + p2 + p3)
 
 res %>% group_by(method) %>% summarise(avg_time = mean(elapsed_time))
-ggsave(sprintf("test_nsbm3_%s.png", state_str), width = 10, height=5)
+# ggsave(sprintf("test_nsbm3_%s.png", state_str), width = 10, height=5)
