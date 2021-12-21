@@ -20,14 +20,14 @@ Rcpp::sourceCpp("src/NSBM.cpp", verbose = T)
 n = 100
 Ktru = 2
 Ltru = 5
-K = L = 10
+K = L = 20
 J = 50
 
-lambda = 30
+lambda = 20
 # lambda = 30
 zeta = .9 # try z = 0.3
 gam = .7
-nreps = 32
+nreps = 25
 n_cores = 32
 niter = 100
 
@@ -136,7 +136,7 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
   }
   else {
     # out = gen_rand_nsbm(n=n, K=Ktru, L=Ltru, J=J, lambda=lambda, gam=gam, zeta=zeta, sort_z = T)
-    out = gen_rand_graphon(n = n, J = J, L = Ltru, std = 5)    
+    out = gen_rand_graphon(n = n, J = J, lambda = lambda, L = Ltru, std = 10)    
   }
   A = out$A
   z_tru = out$z
