@@ -96,7 +96,6 @@ class NestedSBM {
             eta = arma::cube(L, L, K, arma::fill::zeros); 
             // pi = arma::vec(K, arma::fill::ones);
             w = arma::mat(L, K, arma::fill::ones);
-             
 
             // z_log_prob_record = arma::vec(K);
 
@@ -130,6 +129,7 @@ class NestedSBM {
             //u(arma::span(0,K-2)) *= 1. / (1+pi0);            
             u(arma::span(0,K-2)) *= 0.5;            
             pi = stick_break(u);
+            // pi = arma::vec(K, arma::fill::ones);
 
             // Rcout << "4";
             v = arma::mat(L, K, arma::fill::ones);
@@ -142,6 +142,7 @@ class NestedSBM {
             for (int k = 0; k < K; k++) {
                 w.col(k) = stick_break(v.col(k));
             }
+            // w = arma::mat(L, K, arma::fill::ones);
 
             // for (int j = 0; j < J; j++) {
             //     blk_compressions[j] = sp_compress_col(A[j], xi[j], L);
@@ -160,6 +161,22 @@ class NestedSBM {
             xi[j](s) = sample_index(safe_exp(log_prob));  
 
         }
+        
+        void update_xi_element_via_marginal(const int j, const int s) {
+            arma::vec tau = sp_single_col_compress(A[j], s, xi[j], L);
+            arma::uvec rho = get_freq(xi[j], L);
+            rho(xi[j](s))--;
+            
+            arma::vec prob(L, arma::fill::zeros);
+            for (int l = 0; l < L; l++) {
+                for (int k = 0; k < K; k++) {
+                    prob(l) += w.col(k)(l) * safe_exp(a.slice(k) * tau + b.slice(k) * rho)(l) * pi(k);
+                }
+            }
+
+            xi[j](s) = sample_index(prob);
+
+        }
 
         void comp_count_tensors() {
             //List out = comp_blk_sums_and_sizes(Rcpp::as<arma::sp_mat>(A[0]), xi[0], L);
@@ -174,7 +191,7 @@ class NestedSBM {
                 mbar.slice(z(j)) += NN - lambda;
             }
         }
-
+        
         void update_eta() {    
             // Update the eta-related tensors
             comp_count_tensors();
@@ -182,6 +199,37 @@ class NestedSBM {
                 eta.slice(k) = symmat_rbeta(m.slice(k) + beta_params.alpha, mbar.slice(k) + beta_params.beta);
                 a.slice(k) = log(eta.slice(k) / (1-eta.slice(k)) + perturb);
                 b.slice(k) = log(1-eta.slice(k) + perturb);
+            }
+        }
+
+        void update_eta_with_constraint() {    
+            // Update the eta-related tensors
+            comp_count_tensors();
+            for (int k = 0; k < K; k++) {
+                for (int x = 0; x < L; x++) {
+                    for (int y = x; y < L; y++) {
+                        
+                        double max_eta = 0;
+                            for (int i = 0; i < L; i++) {
+                                for (int j = 0; j < L; j++) {
+                                    if (i == x & j == y) continue; 
+                                    max_eta = std::max(eta(i,j,k), max_eta);
+                                }
+                            }
+                        
+                        //eta(x,y,k) = rTruncBeta_tail(m(x,y,k) + beta_params.alpha, mbar(x,y,k) + beta_params.beta, .5 * max_eta, 1);
+                        do {
+                            eta(x,y,k) = R::rbeta(m(x,y,k) + beta_params.alpha, mbar(x,y,k) + beta_params.beta);
+                        }
+                        while (eta(x,y,k) < .05 * max_eta);
+                        a(x,y,k) = log(eta(x,y,k) / (1-eta(x,y,k)) + perturb);
+                        b(x,y,k) = log(1-eta(x,y,k) + perturb);
+                        
+                        eta(y,x,k) = eta(x,y,k);
+                        a(y,x,k) = a(x,y,k);
+                        b(y,x,k) = b(x,y,k);
+                    }
+                }
             }
         }
 
@@ -271,6 +319,48 @@ class NestedSBM {
                         update_pi();
                         update_w();
                         break;
+                        
+                    case 4:
+                        update_eta_with_constraint(); // also updates count tensors m and mbar 
+                        update_pi();
+                        update_w();
+                    
+                        for (int j = 0; j < J; j++) {
+                            update_z_element_via_eta(j);
+                            for (int s = 0; s < n(j); s++) {
+                                update_xi_element_via_eta(j, s);
+                            } // s
+                            
+                        } // j
+                        break;
+                        
+                    case 5:
+                        if (iter == 0) set_xi_to_dpsbm_labels(50);
+                        update_eta(); // also updates count tensors m and mbar 
+                        for (int j = 0; j < J; j++) {
+                            for (int s = 0; s < n(j); s++) {
+                                update_xi_element_via_marginal(j, s);
+                            } // s
+                            update_z_element_via_eta(j);
+                        } // j
+
+                        update_pi();
+                        update_w();
+                        break;
+                        
+                    case 6:
+                        if (iter == 0) set_xi_to_dpsbm_labels(50);
+                        update_eta(); // also updates count tensors m and mbar 
+                        for (int j = 0; j < J; j++) {
+                            update_z_element_via_eta(j);
+                            for (int s = 0; s < n(j); s++) {
+                                update_xi_element_via_marginal(j, s);
+                            } // s
+                        } // j
+
+                        update_pi();
+                        update_w();
+                        break;
 
                 }        
                
@@ -310,11 +400,13 @@ class NestedSBM {
         void set_xi_to_random_labels() {
             for (int j=0; j < J; j++) {
                 xi[j] = sample_int_vec(L, n[j]);
+                // xi[j] = sample_int_vec(1, n[j]);
             }
         }
 
         void set_z_to_random_labels() {
             z = sample_int_vec(K, J);
+            // z = sample_int_vec(1, J);
         }
 
         arma::uvec get_xi_freq_over_z(const int k) {
@@ -409,9 +501,41 @@ class NestedSBM {
             //             m.slice(z(j)), mbar.slice(z(j)), 
             //             w.col(z(j)), beta_params.alpha, beta_params.beta);
         }
-
         
-        List run_gibbs(const int niter) {
+        void update_xi_element_marginal(const int j, const int s) {
+            
+            arma::vec U = sp_single_col_compress(A[j], s, xi[j], L);
+
+            arma::uvec V = get_freq(xi[j], L);
+            V(xi[j](s))--;
+
+            int xi_j_s_old = xi[j](s);
+            
+            List out = comp_blk_sums_and_sizes(A[j], xi[j], L);
+            arma::mat lambda = out["lambda"];
+            arma::umat NN = out["NN"];
+            
+            arma::vec prob(L, arma::fill::zeros);
+            for (int k = 0; k < K; k++) {
+                arma::vec temp = comp_beta_ratio_prods_v1(m.slice(k) + lambda, mbar.slice(k) + NN - lambda, U, V, xi_j_s_old, beta_params.alpha, beta_params.beta);
+                for (int l = 0; l < L; l++) {
+                    prob(l) += w.col(k)(l) * temp(l) * pi(k);
+                }
+            }
+
+            xi[j](s) = sample_index(prob);
+            
+            // update m and mbar
+            if ( xi_j_s_old != xi[j](s) ) {
+                arma::mat D = comp_blk_sums_diff_v1(U, xi[j](s), xi_j_s_old);
+                arma::mat DN = comp_blk_sums_diff_v1(arma::conv_to<arma::vec>::from(V), xi[j](s), xi_j_s_old);
+                m.slice(z(j)) += D;
+                mbar.slice(z(j)) += DN - D;
+            }
+
+        }
+        
+        List run_gibbs(const int niter, const int version) {
             // Run full Gibbs updates for "niter" iterations and record label history
             std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
             arma::umat z_hist(J, niter+1);
@@ -436,7 +560,15 @@ class NestedSBM {
                     arma::uvec z_cluster_k = arma::find(z == k);
                     for (auto j : z_cluster_k) {
                         for (int s = 0; s < n(j); s++) {
-                            update_xi_element(j, s);
+                            
+                            switch (version) {
+                                case 1:
+                                    update_xi_element(j, s);
+                                    break;
+                                case 2:
+                                    update_xi_element_marginal(j, s);
+                                    break;
+                            }
                         } // s                        
                     }
                 }
@@ -496,7 +628,7 @@ class NestedSBM {
             comp_count_tensors();
         }
 
-        List run_gibbs_naive(const int niter) {
+        List run_gibbs_naive(const int niter, const int version) {
             // Run full Gibbs updates for "niter" iterations and record label history
             std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
             arma::umat z_hist(J, niter+1);
@@ -511,7 +643,14 @@ class NestedSBM {
                 update_pi();
                 for (int j = 0; j < J; j++) {
                     for (int s = 0; s < n(j); s++) {
-                        update_xi_element(j, s);
+                        switch (version) {
+                            case 1:
+                                update_xi_element(j, s);
+                                break;
+                            case 2:
+                                update_xi_element_marginal(j, s);
+                                break;
+                        }
                     } // s
                     update_z_element_naive(j);
                 } // j
