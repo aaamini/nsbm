@@ -17,16 +17,17 @@ source("R/nsbm_wrapper.R")
 # simulation ----
 set.seed(1234)
 niter = 100
-K = L = 15
+K = L = 10
 n_cores <- detectCores()
 nreps <- n_cores
+rand_sbm <- TRUE
 
-n = 100; J = 20; K_tru = 3; L_tru = 3
+n = 100; J = 20; K_tru = 3; L_tru = c(2,3,5)
 
 methods = list()
 
 methods[["Collapsed"]] = function(A) {
-  fit_nsbm(A, K, L, niter, collapsed = T, version = 1)
+  fit_nsbm(A, K, L, niter, collapsed = T, version = 1, naive = TRUE)
 }
 
 methods[["Gibbs"]] = function(A) {
@@ -42,16 +43,22 @@ methods[["Incompatible block"]] = function(A) {
 }
 
 methods[["Block collapsed"]] = function(A) {
-  fit_nsbm(A, K, L, niter, collapsed = T, version = 2)
+  fit_nsbm(A, K, L, niter, collapsed = T, version = 2, naive = TRUE)
 }
 
 mtd_names = names(methods)
 
 res = do.call(rbind, mclapply(1:nreps, function(rep) {
   
-  out = gen_rand_nsbm(n = n, J = J
-                      , K = K_tru, L = L_tru
-                      , gam = 0.8, zeta = 0.8, lambda = 20)
+  if (rand_sbm) {
+    out = gen_rand_nsbm(n = n
+                        , J = J
+                        , K = K_tru
+                        , L = L_tru
+                        , gam = 0.4, lambda = 15)    
+  } else {
+    out = generate_nathans_data()  
+  }
   
   A = out$A
   z_tru = out$z
@@ -78,8 +85,12 @@ res$method <- factor(res$method, levels = c("Gibbs"
                                             , "Incompatible block"
                                             , "Block collapsed"))
 
+if (rand_sbm) {
+  state_str =  sprintf("J = %d, n = %d, nreps = %d", J, n, nreps)  
+} else {
+  state_str = "HSBM: Multilayer personality-friendship network"
+}
 
-state_str =  sprintf("J = %d, n = %d, nreps = %d", J, n, nreps)
 p1 = res %>% 
   group_by(iter, method) %>% summarise(mean = mean(z_nmi), sd = sd(z_nmi)) %>% 
   ggplot(aes(x = iter, y = mean, color = method)) + 
