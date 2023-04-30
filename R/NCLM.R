@@ -106,6 +106,8 @@ NCLM <- function(A, J = 10) {
   # A     : list adjacency matrix
   # J     : max number of graph moments
   
+  require(Matrix)
+  
   m <- length(A)
   
   # 1. Moment calculation
