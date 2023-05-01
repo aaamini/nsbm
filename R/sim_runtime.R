@@ -6,7 +6,6 @@ library(parallel)
 library(patchwork)
 
 # Functions ----
-setwd("/project/sand/njosephs/NDP/nsbm/")
 source("R/data_gen.R")
 source("R/inference.R")
 source("R/nsbm_wrapper.R")
@@ -14,12 +13,12 @@ source("R/NCLM.R")
 source("R/setup_methods.R")
 
 # Settings ----
-niter <- 200  # number of iteration for Gibbs samplers
+niter <- 500  # number of iteration for Gibbs samplers
 K <- L <- 15  # truncation levels for NSBM models
 ncores <- detectCores()
 nreps <- 100
 
-n <- 400          # number of nodes
+n <- 500          # number of nodes
 J <- 20           # number of networks
 K_tru <- 3        # number of true classes
 L_tru <- c(2,3,5) # number of true communities in each class
@@ -66,7 +65,7 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
 res <- res %>%
   mutate(method = factor(method, levels = mtd_names))
 
-save(res, file = "./runtime_results.RData")
+save(res, file = "./final/runtime_results.RData")
 
 # Visualize ----
 mean_res =  res %>%
@@ -84,14 +83,14 @@ p_z <- mean_res %>%
   ggplot2::theme(
     legend.background = ggplot2::element_blank(),
     legend.title = ggplot2::element_blank(),
-    legend.position = c(0.8, 0.85),
+    legend.position = c(0.25, 0.85),
     text = element_text(size = 25)
   ) +
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   geom_ribbon(aes(ymin = lower_z, ymax = upper_z, fill = method)
               , alpha = 0.1, linetype = "blank") +
-  ylim(c(0, 1)) +
-  ylab("z-NMI") + xlab("Iteration")
+  ylim(c(0, 1)) +  scale_x_continuous(n.breaks = 3) +
+  ylab(expression(bold(z)~"-NMI")) + xlab("Iteration")
 
 p_xi <- mean_res %>% 
   ggplot(aes(x = iter, y = mean_xi_nmi, color = method)) +
@@ -101,11 +100,11 @@ p_xi <- mean_res %>%
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   geom_ribbon(aes(ymin = lower_xi, ymax = upper_xi, fill = method)
               , alpha = 0.1, linetype = "blank") +
-  ylim(c(0, 1)) +
-  ylab("xi-NMI") + xlab("Iteration")
+  ylim(c(0, 1)) + scale_x_continuous(n.breaks = 3) +
+  ylab(expression(bold(xi)~"-NMI")) + xlab("Iteration")
 
 res <- res %>%
-  mutate(method = factor(method, labels = c("NCG", "CG", "BG", "IBG")))
+  mutate(method = factor(method, labels = c("G", "CG", "BG", "IBG")))
 
 p_time <- res %>%
   ggplot(aes(x = method, y = time, fill = method)) +
@@ -115,6 +114,6 @@ p_time <- res %>%
   scale_y_sqrt() +
   theme_minimal(base_size = 25)
 
-p_z + p_xi + p_time
+p_z + p_xi
 
-ggsave("./runtime.pdf", width = 12, height = 8)
+ggsave("./final/runtime.pdf", width = 12, height = 8)

@@ -6,7 +6,6 @@ library(parallel)
 library(patchwork)
 
 # Functions ----
-setwd("/project/sand/njosephs/NDP/nsbm/")
 source("R/data_gen.R")
 source("R/inference.R")
 source("R/nsbm_wrapper.R")
@@ -50,7 +49,7 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
     mout <- methods[[j]](A)
     end_time = as.numeric(Sys.time() - start_time)
     
-    if (grepl("Gibbs", mtd_names[j], fixed = TRUE)) {
+    if (mtd_names[j] %in% c("G", "CG", "BG", "IBG")) {
       z_hist = mout$z
       xi_hist = mout$xi
       
@@ -79,7 +78,7 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
 res <- res %>%
   mutate(method = factor(method, levels = mtd_names))
 
-save(res, file = "./lambda_results.RData")
+save(res, file = "./final/lambda_results.RData")
 
 # Visualize ----
 mean_res =  res %>% 
@@ -106,7 +105,7 @@ p_z <- mean_res %>%
   geom_ribbon(aes(ymin = lower_z, ymax = upper_z, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +
-  ylab("z-NMI") + xlab(expression(lambda))
+  ylab(expression(bold(z)~"-NMI")) + xlab(expression(lambda))
 
 p_xi <- mean_res %>% 
   ggplot(aes(x = lambda, y = mean_xi_nmi, color = method)) +
@@ -117,8 +116,8 @@ p_xi <- mean_res %>%
   geom_ribbon(aes(ymin = lower_xi, ymax = upper_xi, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +
-  ylab("xi-NMI") + xlab(expression(lambda))
+  ylab(expression(bold(xi)~"-NMI")) + xlab(expression(lambda))
 
 p_z + p_xi
 
-ggsave("./lambda.pdf", width = 12, height = 8)
+ggsave("./final/lambda.pdf", width = 12, height = 8)

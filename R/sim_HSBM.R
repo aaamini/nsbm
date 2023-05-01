@@ -12,7 +12,7 @@ source("R/nsbm_wrapper.R")
 source("R/NCLM.R")
 source("R/setup_methods.R")
 
-sample_hsbm <- function(J, n) {
+sample_hsbm <- function(J, n, labeled = FALSE) {
   
   pm1 <- cbind(c(.9, .75, .5)
                , c(.75, .6, .25)
@@ -41,10 +41,14 @@ sample_hsbm <- function(J, n) {
       xi_tru[[j]] <- c(rep(1, .2*n), rep(2, .4*n), rep(3, .4*n))
     }
     
-    # unlabeled networks
-    pi <- sample(n)
-    A[[j]] <- G[pi, pi]
-    xi_tru[[j]] <-xi_tru[[j]][pi]
+    if (labeled) {
+      A[[j]] <- G
+    } else {
+      pi <- sample(n)
+      A[[j]] <- G[pi, pi]
+      xi_tru[[j]] <- xi_tru[[j]][pi]
+    }
+    
   }
   
   return(list(A = A, z = z_tru, xi = xi_tru))
@@ -56,8 +60,8 @@ K <- L <- 15  # truncation levels for NSBM models
 ncores <- detectCores()
 nreps <- 100
 
-J <- 60  # number of networks
-n <- 200 # number of nodes
+J <- 120 # number of networks
+n <- 60  # number of nodes
 
 # Simulation ----
 res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
@@ -75,7 +79,7 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
     mout <- methods[[j]](A)
     end_time = as.numeric(Sys.time() - start_time)
     
-    if (grepl("Gibbs", mtd_names[j], fixed = TRUE)) {
+    if (mtd_names[j] %in% c("G", "CG", "BG", "IBG")) {
       z_hist = mout$z
       xi_hist = mout$xi
       
@@ -101,26 +105,26 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
 }, mc.cores = ncores))
 
 res <- res %>%
-  mutate(method = factor(method, labels = c("NCG", "CG", "BG", "IBG", "NCGE", "NCLM")))
+  mutate(method = factor(method, labels = c("G", "CG", "BG", "IBG", "NCGE", "NCLM")))
 
-save(res, file = "./HSBM_results.RData")
+save(res, file = "./final/HSBM_results.RData")
 
 # Visualize ----
 p_z <- res %>%
   ggplot(aes(x = method, y = z_nmi, fill = method)) +
   geom_boxplot() +
-  ylab("z-NMI") + xlab("") +
+  ylab(expression(bold(z)~"-NMI")) + xlab("") +
   ylim(c(0, 1)) +
   guides(fill = "none") +
-  theme_minimal(base_size = 25)
+  theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45))
 
 p_xi <- res %>%
   ggplot(aes(x = method, y = xi_nmi, fill = method)) +
   geom_boxplot() +
-  ylab("xi-NMI") + xlab("") +
+  ylab(expression(bold(xi)~"-NMI")) + xlab("") +
   ylim(c(0, 1)) +
   guides(fill = "none") +
-  theme_minimal(base_size = 25)
+  theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45))
 
 p_time <- res %>%
   ggplot(aes(x = method, y = time, fill = method)) +
@@ -128,8 +132,8 @@ p_time <- res %>%
   ylab("Seconds") + xlab("") +
   guides(fill = "none") +
   scale_y_sqrt() +
-  theme_minimal(base_size = 25)
+  theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45))
 
-p_z + p_xi + p_time
+p_z + p_xi
 
-ggsave("./HSBM.pdf", width = 12, height = 8)
+ggsave("./final/HSBM.pdf", width = 12, height = 8)
