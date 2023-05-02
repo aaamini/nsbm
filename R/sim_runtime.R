@@ -63,9 +63,8 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
 }, mc.cores = ncores))
 
 res <- res %>%
-  mutate(method = factor(method, levels = mtd_names))
-
-save(res, file = "./final/runtime_results.RData")
+  mutate(method = factor(method
+                         , labels = mtd_names))
 
 # Visualize ----
 mean_res =  res %>%
@@ -90,7 +89,9 @@ p_z <- mean_res %>%
   geom_ribbon(aes(ymin = lower_z, ymax = upper_z, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +  scale_x_continuous(n.breaks = 3) +
-  ylab(expression(bold(z)~"-NMI")) + xlab("Iteration")
+  ylab(expression(bold(z)~"-NMI")) + xlab("Iteration") +
+  scale_fill_manual(values = scales::hue_pal()(6)[1:4]) +
+  scale_color_manual(values = scales::hue_pal()(6)[1:4])
 
 p_xi <- mean_res %>% 
   ggplot(aes(x = iter, y = mean_xi_nmi, color = method)) +
@@ -101,10 +102,8 @@ p_xi <- mean_res %>%
   geom_ribbon(aes(ymin = lower_xi, ymax = upper_xi, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) + scale_x_continuous(n.breaks = 3) +
-  ylab(expression(bold(xi)~"-NMI")) + xlab("Iteration")
-
-res <- res %>%
-  mutate(method = factor(method, labels = c("G", "CG", "BG", "IBG")))
+  ylab(expression(bold(xi)~"-NMI")) + xlab("Iteration") +scale_fill_manual(values = scales::hue_pal()(6)[1:4]) +
+  scale_color_manual(values = scales::hue_pal()(6)[1:4])
 
 p_time <- res %>%
   ggplot(aes(x = method, y = time, fill = method)) +
@@ -115,5 +114,3 @@ p_time <- res %>%
   theme_minimal(base_size = 25)
 
 p_z + p_xi
-
-ggsave("./final/runtime.pdf", width = 12, height = 8)

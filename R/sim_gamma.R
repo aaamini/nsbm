@@ -78,8 +78,6 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
 res <- res %>%
   mutate(method = factor(method, levels = mtd_names))
 
-save(res, file = "./final/gamma_results.RData")
-
 # Visualize ----
 mean_res =  res %>% 
   group_by(method, gam) %>% 
@@ -119,5 +117,3 @@ p_xi <- mean_res %>%
   ylab(expression(bold(xi)~"-NMI")) + xlab(expression(gamma))
 
 p_z + p_xi
-
-ggsave("./final/gamma.pdf", width = 12, height = 8)

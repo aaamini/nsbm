@@ -78,8 +78,6 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
 res <- res %>%
   mutate(method = factor(method, levels = mtd_names))
 
-save(res, file = "./final/lambda_results.RData")
-
 # Visualize ----
 mean_res =  res %>% 
   group_by(method, lambda) %>% 
@@ -98,7 +96,7 @@ p_z <- mean_res %>%
   ggplot2::theme(
     legend.background = ggplot2::element_blank(),
     legend.title = ggplot2::element_blank(),
-    legend.position = c(0.45, 0.9),
+    legend.position = c(0.25, 0.9),
     text = element_text(size = 25)
   ) +
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
@@ -119,5 +117,3 @@ p_xi <- mean_res %>%
   ylab(expression(bold(xi)~"-NMI")) + xlab(expression(lambda))
 
 p_z + p_xi
-
-ggsave("./final/lambda.pdf", width = 12, height = 8)

@@ -12,7 +12,7 @@ source("R/nsbm_wrapper.R")
 source("R/NCLM.R")
 source("R/setup_methods.R")
 
-sample_hsbm <- function(J, n, labeled = FALSE) {
+sample_hsbm <- function(J, n, labeled = TRUE) {
   
   pm1 <- cbind(c(.9, .75, .5)
                , c(.75, .6, .25)
@@ -25,7 +25,7 @@ sample_hsbm <- function(J, n, labeled = FALSE) {
                , c(.6, .1, .5))
   
   z_tru <- c(rep(1,J/3), rep(2,J/3), rep(3,J/3))
-  A <- xi_tru <- vector("list", length =J)
+  A <- xi_tru <- vector("list", length = J)
   for (j in seq_len(J)) {
     
     if (j <=J/3) {
@@ -107,8 +107,6 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
 res <- res %>%
   mutate(method = factor(method, labels = c("G", "CG", "BG", "IBG", "NCGE", "NCLM")))
 
-save(res, file = "./final/HSBM_results.RData")
-
 # Visualize ----
 p_z <- res %>%
   ggplot(aes(x = method, y = z_nmi, fill = method)) +
@@ -135,5 +133,3 @@ p_time <- res %>%
   theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45))
 
 p_z + p_xi
-
-ggsave("./final/HSBM.pdf", width = 12, height = 8)
