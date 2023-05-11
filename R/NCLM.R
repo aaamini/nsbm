@@ -1,4 +1,4 @@
-compute_log_moments <- function(A, J) {
+compute_log_moments <- function(A, J = 10) {
   # compute log graph moments
   # "On clustering network-valued data"
   #
