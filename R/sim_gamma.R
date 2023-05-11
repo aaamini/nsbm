@@ -75,45 +75,72 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
   out 
 }, mc.cores = ncores))
 
-res <- res %>%
-  mutate(method = factor(method, levels = mtd_names))
+# Load ALMA ----
+library(R.matlab)
+ALMA_res <- readMat("gamma_ALMA.mat")
+load("gamma_truth.RData")
+
+z_ALMA <- ALMA_res[[1]]
+xi_ALMA <- ALMA_res[[2]]
+
+ALMA_z_nmi <- sapply(1:nreps, function(rep) nett::compute_mutual_info(z_ALMA[rep, ]
+                                                                      , z_tru[[rep]]))
+ALMA_xi_nmi <- sapply(1:nreps, function(rep) hsbm::get_slice_nmi(lapply(1:J, function(j) xi_ALMA[rep,z_ALMA[rep, j],])
+                                                                 , xi_tru[[rep]]))
+
+res <- rbind(res
+             , data.frame(time = NA
+                          , rep = 1:nreps
+                          , n = n
+                          , J = J
+                          , gam = runs$gam
+                          , z_nmi = ALMA_z_nmi
+                          , xi_nmi = ALMA_xi_nmi
+                          , method = "ALMA"))
 
 # Visualize ----
+res <- res %>%
+  mutate(method = factor(method
+                         , levels = mtd_names
+                         , labels = mtd_names))
+
 mean_res =  res %>% 
   group_by(method, gam) %>% 
   summarise(mean_z_nmi = mean(z_nmi)
             , lower_z = quantile(z_nmi, .25), upper_z = quantile(z_nmi, .75)
             , mean_xi_nmi = mean(xi_nmi)
             , lower_xi = quantile(xi_nmi, .25), upper_xi = quantile(xi_nmi, .75)
-            , mean_time = mean(time)
-            , lower_time = quantile(time, .25), upper_time = quantile(time, .75)
             , .groups = "drop")
 
-p_z <- mean_res %>% 
+p_z <- mean_res %>%
   ggplot(aes(x = gam, y = mean_z_nmi, color = method)) +
-  geom_line(size = 1.2) +
+  geom_line(size = 2) +
   theme_minimal() +
   ggplot2::theme(
     legend.background = ggplot2::element_blank(),
     legend.title = ggplot2::element_blank(),
-    legend.position = c(0.7, 0.85),
+    legend.position = c(0.75, 0.8),
     text = element_text(size = 25)
   ) +
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   geom_ribbon(aes(ymin = lower_z, ymax = upper_z, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +
-  ylab(expression(bold(z)~"-NMI")) + xlab(expression(gamma))
+  ylab(expression(bold(z)~"-NMI")) + xlab(expression(gamma)) +
+  scale_fill_manual(values = scales::hue_pal()(7)) +
+  scale_color_manual(values = scales::hue_pal()(7))
 
 p_xi <- mean_res %>% 
   ggplot(aes(x = gam, y = mean_xi_nmi, color = method)) +
-  geom_line(size = 1.2) +
+  geom_line(size = 2) +
   theme_minimal() +
   theme(legend.position="none", text = element_text(size = 25)) +
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   geom_ribbon(aes(ymin = lower_xi, ymax = upper_xi, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +
-  ylab(expression(bold(xi)~"-NMI")) + xlab(expression(gamma))
+  ylab(expression(bold(xi)~"-NMI")) + xlab(expression(gamma)) +
+  scale_fill_manual(values = scales::hue_pal()(7)) +
+  scale_color_manual(values = scales::hue_pal()(7))
 
 p_z + p_xi

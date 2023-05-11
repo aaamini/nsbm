@@ -12,7 +12,24 @@ source("R/nsbm_wrapper.R")
 source("R/NCLM.R")
 source("R/setup_methods.R")
 
-sample_hsbm <- function(J, n, labeled = TRUE) {
+methods[["NCGE"]] <- NULL
+mtd_names <- names(methods)
+methods[["NCLM"]] <- function(A) NCLM(A)
+
+round_preserve_sum <- function(x, digits = 0) {
+  # https://stackoverflow.com/questions/32544646/round-vector-of-numerics-to-integer-while-preserving-their-sum
+  
+  up <- 10 ^ digits
+  x <- x * up
+  y <- floor(x)
+  indices <- tail(order(x-y), round(sum(x)) - sum(y))
+  y[indices] <- y[indices] + 1
+  y / up
+}
+
+sample_hsbm <- function(J, n, labeled = FALSE) {
+  
+  n <- sample(20:n, J, replace = TRUE)
   
   pm1 <- cbind(c(.9, .75, .5)
                , c(.75, .6, .25)
@@ -28,23 +45,24 @@ sample_hsbm <- function(J, n, labeled = TRUE) {
   A <- xi_tru <- vector("list", length = J)
   for (j in seq_len(J)) {
     
-    if (j <=J/3) {
-      G <- as_adj(sample_sbm(n, pm1, c(.4*n, .35*n, .25*n)))
-      xi_tru[[j]] <- c(rep(1, .4*n), rep(2, .35*n), rep(3, .25*n))
-      
+    if (j <= J/3) {
+      dist <- round_preserve_sum(c(.4*n[j], .35*n[j], .25*n[j]))
+      pm <- pm1
     } else if (j <= 2*J/3) {
-      G <- as_adj(sample_sbm(n, pm2, c(.7*n, .15*n, .15*n)))
-      xi_tru[[j]] <- c(rep(1, .7*n), rep(2, .15*n), rep(3, .15*n))
-      
+      dist <- round_preserve_sum(c(.7*n[j], .15*n[j], .15*n[j]))
+      pm <- pm2
     } else {
-      G <- as_adj(sample_sbm(n, pm3, c(.2*n, .4*n, .4*n)))
-      xi_tru[[j]] <- c(rep(1, .2*n), rep(2, .4*n), rep(3, .4*n))
+      dist <- round_preserve_sum(c(.2*n[j], .4*n[j], .4*n[j]))
+      pm <- pm3
     }
+    
+    G <- as_adj(sample_sbm(n[j], pm, dist))
+    xi_tru[[j]] <- rep(1:3, times = dist)
     
     if (labeled) {
       A[[j]] <- G
     } else {
-      pi <- sample(n)
+      pi <- sample(n[j])
       A[[j]] <- G[pi, pi]
       xi_tru[[j]] <- xi_tru[[j]][pi]
     }
@@ -61,7 +79,7 @@ ncores <- detectCores()
 nreps <- 100
 
 J <- 120 # number of networks
-n <- 60  # number of nodes
+n <- 100 # max number of nodes
 
 # Simulation ----
 res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
@@ -85,10 +103,11 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
       
       z <- get_map_labels(z_hist)$labels
       xi <- lapply(1:J, function(j) get_map_labels(sapply(xi_hist, "[[", j))$labels)
+      
+      xi_nmi <- hsbm::get_slice_nmi(xi, xi_tru)
     } else {
-      z <- mout$classes
-      xi_j <- mout$clusters
-      xi <- lapply(1:J, function(j) xi_j[[z[j]]])
+      z <- mout
+      xi_nmi <- NA
     }
     
     data.frame(
@@ -97,39 +116,38 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
       , n = n
       , J = J
       , z_nmi = nett::compute_mutual_info(z, z_tru)
-      , xi_nmi = hsbm::get_slice_nmi(xi, xi_tru)
+      , xi_nmi = xi_nmi
       , method = mtd_names[j])
   }))
   
   out 
 }, mc.cores = ncores))
 
-res <- res %>%
-  mutate(method = factor(method, labels = c("G", "CG", "BG", "IBG", "NCGE", "NCLM")))
-
 # Visualize ----
+res <- res %>%
+  mutate(method = factor(method
+                         , levels = mtd_names
+                         , labels = mtd_names))
+
 p_z <- res %>%
   ggplot(aes(x = method, y = z_nmi, fill = method)) +
   geom_boxplot() +
   ylab(expression(bold(z)~"-NMI")) + xlab("") +
   ylim(c(0, 1)) +
   guides(fill = "none") +
-  theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45))
+  theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45)) +
+  scale_fill_manual(values = scales::hue_pal()(7)[c(1:4, 6)]) +
+  scale_color_manual(values = scales::hue_pal()(7)[c(1:4, 6)])
 
 p_xi <- res %>%
+  filter(method != "NCLM") %>% # nonsense for unlabeled networks
   ggplot(aes(x = method, y = xi_nmi, fill = method)) +
   geom_boxplot() +
   ylab(expression(bold(xi)~"-NMI")) + xlab("") +
   ylim(c(0, 1)) +
   guides(fill = "none") +
-  theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45))
-
-p_time <- res %>%
-  ggplot(aes(x = method, y = time, fill = method)) +
-  geom_boxplot() +
-  ylab("Seconds") + xlab("") +
-  guides(fill = "none") +
-  scale_y_sqrt() +
-  theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45))
+  theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45)) +
+  scale_fill_manual(values = scales::hue_pal()(7)[c(1:4, 6)]) +
+  scale_color_manual(values = scales::hue_pal()(7)[c(1:4, 6)])
 
 p_z + p_xi
