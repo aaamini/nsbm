@@ -5,6 +5,7 @@ library(dplyr)
 library(parallel)
 library(kableExtra)
 
+
 # setwd("/project/sand/njosephs/NDP/nsbm/")
 #Rcpp::sourceCpp("src/NestedSBM.cpp", verbose = T)
 #setMethod("show", "Rcpp_NestedSBM", function(object) object$print())
@@ -17,19 +18,22 @@ source("R/NCLM.R")
 source("R/alma_v1.R")
 source("R/setup_methods2.R")
 
+methods = methods[-c(1,2,3,5)]
+mtd_names = names(methods)
+
 # simulation ----
 #set.seed(1234)
 niter = 100
-K = L = 15
 n_cores <- 1# detectCores()
 nreps <- n_cores
 rand_sbm <- TRUE
 tag <- "A"
 
-n = 100 
-J = 20 
-K_tru = 3 
-L_tru = c(2,3,5)
+n <- 200          # number of nodes
+J <- 20           # number of networks
+K_tru <- 3        # number of true classes
+L_tru <- c(2,3,5) # number of true communities in each class
+gam <- 0.2
 
 set.seed(1337)
 
@@ -40,7 +44,9 @@ res = do.call(rbind, lapply(1:nreps, function(rep) {
                         , J = J
                         , K = K_tru
                         , L = L_tru
-                        , gam = 0.4, lambda = 15)    
+                        , gam = gam
+                        , lambda = 25)
+    
   } else {
     out = generate_nathans_data()  
   }
@@ -86,6 +92,6 @@ res_sum <- res %>%
             runtime = mean(runtime))
 
 kbl(res_sum %>% arrange(desc(z_nmi)), 
-                digits = 3) %>% 
+    digits = 3) %>% 
   kable_paper("hover", full_width = F) %>% 
   print()
