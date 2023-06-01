@@ -55,6 +55,11 @@ res = do.call(rbind, lapply(1:nreps, function(rep) {
   z_tru = out$z
   xi_tru = out$xi
   
+  R.matlab::writeMat(paste0("./test_", tag,".mat"), 
+           A = aperm(simplify2array(lapply(out[["A"]], as.matrix)), c(3, 1, 2)), 
+           z_tru = z_tru, 
+           xi_tru = xi_tru)
+  
   cat(sprintf("%30s     dtime \n", "Method"))
   cat(sprintf("%30s     ----- \n", "------"))
   do.call(rbind, lapply(seq_along(methods), function(j) {
