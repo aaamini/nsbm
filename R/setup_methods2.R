@@ -37,4 +37,15 @@ methods[["ALMA"]] = function(A) {
   alma_v1(A, L_tru, verbose=TRUE)
 }
 
+methods[["ALMA (v2-paper)"]] = function(A) {
+  cat('\n')
+  alma(A, L_tru, init='paper', verbose=TRUE)
+}
+
+methods[["ALMA (v2-matlab)"]] = function(A) {
+  cat('\n')
+  alma(A, L_tru, init='matlab', verbose=TRUE)
+}
+
+
 mtd_names = names(methods)

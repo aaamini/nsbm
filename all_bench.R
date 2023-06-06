@@ -15,6 +15,7 @@ source("R/inference.R")
 source("R/nsbm_wrapper.R")
 source("R/NCLM.R")
 source("R/alma_v1.R")
+source("R/alma_v2.R")
 source("R/setup_methods2.R")
 
 # simulation ----
@@ -31,9 +32,9 @@ J = 20
 K_tru = 3 
 L_tru = c(2,3,5)
 
-set.seed(1337)
+set.seed(42)
 
-res = do.call(rbind, lapply(1:nreps, function(rep) {
+res = do.call(rbind, mclapply(1:nreps, function(rep) {
   
   if (rand_sbm) {
     out = gen_rand_nsbm(n = n
@@ -69,7 +70,7 @@ res = do.call(rbind, lapply(1:nreps, function(rep) {
       runtime = runtime
     ) 
   }))
-}))
+}, mc.cores = n_cores))
 
 res$method <- factor(res$method)
 

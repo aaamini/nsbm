@@ -16,6 +16,7 @@ source("R/inference.R")
 source("R/nsbm_wrapper.R")
 source("R/NCLM.R")
 source("R/alma_v1.R")
+source("R/alma_v2.R")
 source("R/setup_methods2.R")
 
 methods = methods[-c(1,2,3,5)]
@@ -34,8 +35,9 @@ J <- 20           # number of networks
 K_tru <- 3        # number of true classes
 L_tru <- c(2,3,5) # number of true communities in each class
 gam <- 0.2
+labeled <- TRUE
 
-set.seed(1337)
+#set.seed(1337)
 
 res = do.call(rbind, lapply(1:nreps, function(rep) {
   
@@ -45,7 +47,8 @@ res = do.call(rbind, lapply(1:nreps, function(rep) {
                         , K = K_tru
                         , L = L_tru
                         , gam = gam
-                        , lambda = 25)
+                        , lambda = 25,
+                        labeled = labeled)
     
   } else {
     out = generate_nathans_data()  
