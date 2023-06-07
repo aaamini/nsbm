@@ -10,13 +10,18 @@ source("R/data_gen.R")
 source("R/inference.R")
 source("R/nsbm_wrapper.R")
 source("R/NCLM.R")
-source("R/setup_methods.R")
+# source("R/setup_methods.R")
+source("R/alma_v1.R")
+source("R/alma_v2.R")
+source("R/setup_methods2.R")
+
 
 # Settings ----
 niter <- 200  # number of iteration for Gibbs samplers
 K <- L <- 15  # truncation levels for NSBM models
-ncores <- detectCores()
-nreps <- 100
+ncores <- 3 # detectCores()
+nreps <- ncores # 100
+labeled <- TRUE
 
 n <- 200          # number of nodes
 J <- 20           # number of networks
@@ -26,9 +31,9 @@ L_tru <- c(2,3,5) # number of true communities in each class
 runs <- expand.grid(gam = seq(0, 1, by = 0.1), rep = seq_len(nreps))
 
 # Simulation ----
-res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
+res <- do.call(rbind, lapply(seq_len(nrow(runs)), function(ri) {
   set.seed(ri)
-  
+
   rep <- runs[ri,"rep"]
   gam <- runs[ri, "gam"]
   
@@ -37,7 +42,8 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
                       , K = K_tru
                       , L = L_tru
                       , gam = gam
-                      , lambda = 25)
+                      , lambda = 25,
+                      labeled = labeled)
   
   A = out$A
   z_tru = out$z
@@ -47,56 +53,56 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
     
     start_time = Sys.time()
     mout <- methods[[j]](A)
-    end_time = as.numeric(Sys.time() - start_time)
+    runtime = as.numeric(Sys.time() - start_time)
     
-    if (mtd_names[j] %in% c("G", "CG", "BG", "IBG")) {
-      z_hist = mout$z
-      xi_hist = mout$xi
+    # if (mtd_names[j] %in% c("G", "CG", "BG", "IBG")) {
+    #   z_hist = mout$z
+    #   xi_hist = mout$xi
       
-      z <- get_map_labels(z_hist)$labels
-      xi <- lapply(1:J, function(j) get_map_labels(sapply(xi_hist, "[[", j))$labels)
-    } else {
-      z <- mout$classes
-      xi_j <- mout$clusters
-      xi <- lapply(1:J, function(j) xi_j[[z[j]]])
-    }
-    
+    #   z <- get_map_labels(z_hist)$labels
+    #   xi <- lapply(1:J, function(j) get_map_labels(sapply(xi_hist, "[[", j))$labels)
+    # } else {
+    #   z <- mout$classes
+    #   xi_j <- mout$clusters
+    #   xi <- lapply(1:J, function(j) xi_j[[z[j]]])
+    # }
+
     data.frame(
-      time = end_time
-      , rep = rep
-      , n = n
-      , J = J
-      , gam = gam
-      , z_nmi = nett::compute_mutual_info(z, z_tru)
-      , xi_nmi = hsbm::get_slice_nmi(xi, xi_tru)
-      , method = mtd_names[j])
+      time = runtime,
+      rep = rep,
+      n = n,
+      J = J,
+      gam = gam,
+      z_nmi = nett::compute_mutual_info(mout$z, z_tru),
+      xi_nmi = hsbm::get_slice_nmi(mout$xi, xi_tru),
+      method = mtd_names[j])
   }))
   
   out 
-}, mc.cores = ncores))
+}))# , mc.cores = ncores))
 
 # Load ALMA ----
-library(R.matlab)
-ALMA_res <- readMat("gamma_ALMA.mat")
-load("gamma_truth.RData")
-
-z_ALMA <- ALMA_res[[1]]
-xi_ALMA <- ALMA_res[[2]]
-
-ALMA_z_nmi <- sapply(1:nreps, function(rep) nett::compute_mutual_info(z_ALMA[rep, ]
-                                                                      , z_tru[[rep]]))
-ALMA_xi_nmi <- sapply(1:nreps, function(rep) hsbm::get_slice_nmi(lapply(1:J, function(j) xi_ALMA[rep,z_ALMA[rep, j],])
-                                                                 , xi_tru[[rep]]))
-
-res <- rbind(res
-             , data.frame(time = NA
-                          , rep = 1:nreps
-                          , n = n
-                          , J = J
-                          , gam = runs$gam
-                          , z_nmi = ALMA_z_nmi
-                          , xi_nmi = ALMA_xi_nmi
-                          , method = "ALMA"))
+# library(R.matlab)
+# ALMA_res <- readMat("gamma_ALMA.mat")
+# load("gamma_truth.RData")
+# 
+# z_ALMA <- ALMA_res[[1]]
+# xi_ALMA <- ALMA_res[[2]]
+# 
+# ALMA_z_nmi <- sapply(1:nreps, function(rep) nett::compute_mutual_info(z_ALMA[rep, ]
+#                                                                       , z_tru[[rep]]))
+# ALMA_xi_nmi <- sapply(1:nreps, function(rep) hsbm::get_slice_nmi(lapply(1:J, function(j) xi_ALMA[rep,z_ALMA[rep, j],])
+#                                                                  , xi_tru[[rep]]))
+# 
+# res <- rbind(res
+#              , data.frame(time = NA
+#                           , rep = 1:nreps
+#                           , n = n
+#                           , J = J
+#                           , gam = runs$gam
+#                           , z_nmi = ALMA_z_nmi
+#                           , xi_nmi = ALMA_xi_nmi
+#                           , method = "ALMA"))
 
 # Visualize ----
 res <- res %>%
