@@ -135,9 +135,9 @@ p_z <- mean_res %>%
   geom_ribbon(aes(ymin = lower_z, ymax = upper_z, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +
-  ylab(expression(bold(z)~"-NMI")) + xlab(expression(gamma)) 
-  # scale_fill_manual(values = colors) +
-  # scale_color_manual(values = colors)
+  ylab(expression(bold(z)~"-NMI")) + xlab(expression(gamma)) +
+  scale_fill_manual(values = colors) +
+  scale_color_manual(values = colors)
 
 p_xi <- mean_res %>% 
   ggplot(aes(x = gam, y = mean_xi_nmi, color = method)) +
@@ -153,3 +153,5 @@ p_xi <- mean_res %>%
   scale_color_manual(values = colors)
 
 p_z + p_xi
+
+ggsave("sim_gamma.png", width = 10)
