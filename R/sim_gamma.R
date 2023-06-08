@@ -13,7 +13,7 @@ source("R/NCLM.R")
 # source("R/setup_methods.R")
 source("R/alma_v1.R")
 source("R/alma_v2.R")
-source("R/setup_methods2.R")
+source("R/setup_methods3.R")
 
 
 # Settings ----
@@ -31,7 +31,7 @@ L_tru <- c(2,3,5) # number of true communities in each class
 runs <- expand.grid(gam = seq(0, 1, by = 0.1), rep = seq_len(nreps))
 
 # Simulation ----
-res <- do.call(rbind, lapply(seq_len(nrow(runs)), function(ri) {
+res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
   set.seed(ri)
 
   rep <- runs[ri,"rep"]
@@ -79,7 +79,7 @@ res <- do.call(rbind, lapply(seq_len(nrow(runs)), function(ri) {
   }))
   
   out 
-}))# , mc.cores = ncores))
+}, mc.cores = ncores))
 
 # Load ALMA ----
 # library(R.matlab)
@@ -116,8 +116,11 @@ mean_res =  res %>%
             , lower_z = quantile(z_nmi, .25), upper_z = quantile(z_nmi, .75)
             , mean_xi_nmi = mean(xi_nmi)
             , lower_xi = quantile(xi_nmi, .25), upper_xi = quantile(xi_nmi, .75)
-            , .groups = "drop")
+            , mean_time = mean(time), 
+            .groups = "drop")
 
+n_methods <- length(mtd_names)
+colors <- ggsci::pal_jco()(n_methods)
 p_z <- mean_res %>%
   ggplot(aes(x = gam, y = mean_z_nmi, color = method)) +
   geom_line(size = 2) +
@@ -132,9 +135,9 @@ p_z <- mean_res %>%
   geom_ribbon(aes(ymin = lower_z, ymax = upper_z, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +
-  ylab(expression(bold(z)~"-NMI")) + xlab(expression(gamma)) +
-  scale_fill_manual(values = scales::hue_pal()(7)) +
-  scale_color_manual(values = scales::hue_pal()(7))
+  ylab(expression(bold(z)~"-NMI")) + xlab(expression(gamma)) 
+  # scale_fill_manual(values = colors) +
+  # scale_color_manual(values = colors)
 
 p_xi <- mean_res %>% 
   ggplot(aes(x = gam, y = mean_xi_nmi, color = method)) +
@@ -146,7 +149,7 @@ p_xi <- mean_res %>%
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +
   ylab(expression(bold(xi)~"-NMI")) + xlab(expression(gamma)) +
-  scale_fill_manual(values = scales::hue_pal()(7)) +
-  scale_color_manual(values = scales::hue_pal()(7))
+  scale_fill_manual(values = colors) +
+  scale_color_manual(values = colors)
 
 p_z + p_xi
