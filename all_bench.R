@@ -16,7 +16,7 @@ source("R/nsbm_wrapper.R")
 source("R/NCLM.R")
 source("R/alma_v1.R")
 source("R/alma_v2.R")
-source("R/setup_methods2.R")
+source("R/setup_methods3.R")
 
 # simulation ----
 #set.seed(1234)

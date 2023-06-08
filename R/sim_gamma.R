@@ -19,7 +19,7 @@ source("R/setup_methods3.R")
 # Settings ----
 niter <- 200  # number of iteration for Gibbs samplers
 K <- L <- 15  # truncation levels for NSBM models
-ncores <- 3 # detectCores()
+ncores <- 12 # detectCores()
 nreps <- ncores # 100
 labeled <- TRUE
 
