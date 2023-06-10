@@ -26,6 +26,7 @@ n_cores <- 1# detectCores()
 nreps <- n_cores
 rand_sbm <- TRUE
 labeled <- TRUE
+trans_prob <- 0.7
 tag <- "A"
 
 n = 100 
@@ -42,9 +43,10 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
                         , J = J
                         , K = K_tru
                         , L = L_tru
-                        , gam = 0.4
+                        , gam = 0.2
                         , lambda = 15
-                        , labeled = labeled)    
+                        , labeled = labeled
+                        , trans_prob = trans_prob)    
   } else {
     out = generate_nathans_data()  
   }

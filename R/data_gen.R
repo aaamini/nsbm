@@ -12,11 +12,12 @@ runifmat = function(K, sym = T) {
 gen_rand_nsbm = function(n, J, K, L
                          , lambda = 10
                          , gam = 0.3
-                         , labeled = TRUE) {
+                         , labeled = TRUE
+                         , trans_prob = 0) {
   # n : number of nodes per network
   # J : number of networks per class
   # K : number of classes
-  # L : number of communities (in classes 1, ..., K)
+  # L : number of communities (in classes 1, ..., K), a vector of length K
   
   n.L = length(L)
   
@@ -44,8 +45,13 @@ gen_rand_nsbm = function(n, J, K, L
   xi = A = vector("list", J)
   
   if (labeled) {
+    xi_star = lapply(seq_along(L), function(k) sample(L[k], n, replace=TRUE))
     for (j in 1:J) {
-      xi[[j]] = rep(1:L[z[j]], each = ceiling(n / L[z[j]]), length.out = n)
+      # xi[[j]] = rep(1:L[z[j]], each = ceiling(n / L[z[j]]), length.out = n)
+      xi[[j]] = xi_star[[z[j]]] 
+      flip_indices = runif(n) < trans_prob
+      xi[[j]][flip_indices] = sample(L[z[j]], sum(flip_indices), replace = TRUE)
+      
       A[[j]] = nett::fast_sbm(xi[[j]], eta[[z[j]]])
     }
   } else {
