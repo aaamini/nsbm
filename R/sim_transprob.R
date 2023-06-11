@@ -120,4 +120,4 @@ p_xi <- mean_res %>%
 
 p_z + p_xi
 
-ggsave("sim_gamma.png", width = 10)
+ggsave("sim_transprob.png", width = 10)
