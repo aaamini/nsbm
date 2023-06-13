@@ -19,8 +19,8 @@ source("R/setup_methods3.R")
 # Settings ----
 niter <- 200  # number of iteration for Gibbs samplers
 K <- L <- 15  # truncation levels for NSBM models
-ncores <- 12 # detectCores()
-nreps <- ncores # 100
+ncores <- 28
+nreps <- 100
 labeled <- TRUE
 
 n <- 200          # number of nodes
@@ -70,6 +70,8 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
   out 
 }, mc.cores = ncores))
 
+save(res, file = "transprob_results.RData")
+
 # Visualize ----
 res <- res %>%
   mutate(method = factor(method
@@ -85,39 +87,37 @@ mean_res =  res %>%
             , mean_time = mean(time), 
             .groups = "drop")
 
-n_methods <- length(mtd_names)
-colors <- ggsci::pal_jco()(n_methods)
 p_z <- mean_res %>%
   ggplot(aes(x = trans_prob, y = mean_z_nmi, color = method)) +
   geom_line(size = 2) +
   theme_minimal() +
-  ggplot2::theme(
-    legend.background = ggplot2::element_blank(),
-    legend.title = ggplot2::element_blank(),
-    legend.position = c(0.75, 0.8),
-    text = element_text(size = 25)
-  ) +
+  theme(legend.position="none", text = element_text(size = 25)) +
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   geom_ribbon(aes(ymin = lower_z, ymax = upper_z, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +
   ylab(expression(bold(z)~"-NMI")) + xlab(expression(tau)) +
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = colors)
+  scale_fill_manual(values = scales::hue_pal()(7)[c(1, 2, 4:7)]) +
+  scale_color_manual(values = scales::hue_pal()(7)[c(1, 2, 4:7)])
 
 p_xi <- mean_res %>% 
   ggplot(aes(x = trans_prob, y = mean_xi_nmi, color = method)) +
   geom_line(size = 2) +
   theme_minimal() +
-  theme(legend.position="none", text = element_text(size = 25)) +
+  ggplot2::theme(
+    legend.background = ggplot2::element_blank(),
+    legend.title = ggplot2::element_blank(),
+    legend.position = c(0.7, 0.4),
+    text = element_text(size = 25)
+  ) +
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
   geom_ribbon(aes(ymin = lower_xi, ymax = upper_xi, fill = method)
               , alpha = 0.1, linetype = "blank") +
   ylim(c(0, 1)) +
   ylab(expression(bold(xi)~"-NMI")) + xlab(expression(tau)) +
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = colors)
+  scale_fill_manual(values = scales::hue_pal()(7)[c(1, 2, 4:7)]) +
+  scale_color_manual(values = scales::hue_pal()(7)[c(1, 2, 4:7)])
 
 p_z + p_xi
 
-ggsave("sim_transprob.png", width = 10)
+ggsave("transprob.pdf", width = 12, height = 8)
