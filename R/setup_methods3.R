@@ -25,11 +25,11 @@ methods[["IBG"]] = function(A) {
 }
 
 methods[["NCGE"]] = function(A) {
-  process_two_step_labels( two_step(A, method = "NCGE") )
+  process_two_step_labels( two_step(A, method = "NCGE", K = K_tru) )
 }
 
 methods[["NCLM"]] = function(A) {
-  process_two_step_labels( two_step(A, method = "NCLM") )
+  process_two_step_labels( two_step(A, method = "NCLM", K = K_tru) )
 }
 
 # methods[["ALMA"]] = function(A) {

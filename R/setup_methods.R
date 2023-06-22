@@ -17,11 +17,11 @@ methods[["IBG"]] = function(A) {
 }
 
 methods[["NCGE"]] = function(A) {
-  two_step(A, method = "NCGE")
+  two_step(A, method = "NCGE", K = K_tru)
 }
 
 methods[["NCLM"]] = function(A) {
-  two_step(A, method = "NCLM")
+  two_step(A, method = "NCLM", K = K_tru)
 }
 
 mtd_names = names(methods)

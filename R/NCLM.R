@@ -64,13 +64,15 @@ SpecClust <- function(A, K, sphere = F, n.dim = K, lift = 0, nstart = 20) {
   return(kmeans(U, K, nstart = nstart)$cluster)
 }
 
-NCGE <- function(A) {
+NCGE <- function(A, K = NULL) {
   # network clustering based on graphon estimate
   # "On clustering network-valued data"
   #
   # A     : list adjacency matrix
   
   require(graphon)
+  
+  if (K == 1) return(rep(1, length(A)))
   
   if (!is.matrix(A[[1]])) A <- lapply(A, as.matrix)
   
@@ -85,21 +87,19 @@ NCGE <- function(A) {
   D <- as.matrix(dist(t(V))^2) / (n*(n-1)) # Frobenius distance
   
   # 3. Clustering
-  kern <- exp(-D)
-  lambda <- sort(abs(eigen(kern)$values), decreasing = TRUE)
-  K <- elbow_finder(seq_len(m), lambda)[1] - 1
-  # eigengap <- (lambda[-m] - lambda[-1]) / lambda[-1]
-  # K <- which.max(eigengap)
-  
-  if (K == 1) {
-    return(rep(1, m))
-  } else {
-    return(SpecClust(D, K))
+  if (is.null(K)) {
+    kern <- exp(-D)
+    lambda <- sort(abs(eigen(kern)$values), decreasing = TRUE)
+    K <- elbow_finder(seq_len(m), lambda)[1] - 1
+    # eigengap <- (lambda[-m] - lambda[-1]) / lambda[-1]
+    # K <- which.max(eigengap)
   }
+  
+  return(SpecClust(D, K))
   
 }
 
-NCLM <- function(A, J = 10) {
+NCLM <- function(A, J = 10, K = NULL) {
   # network clustering based on log moments
   # "On clustering network-valued data"
   #
@@ -107,6 +107,8 @@ NCLM <- function(A, J = 10) {
   # J     : max number of graph moments
   
   require(Matrix)
+  
+  if (K == 1) return(rep(1, length(A)))
   
   m <- length(A)
   
@@ -117,21 +119,19 @@ NCLM <- function(A, J = 10) {
   D <- as.matrix(dist(t(m_k))) # Euclidean distance of log moments
   
   # 3. Clustering
-  kern <- exp(-D)
-  lambda <- sort(abs(eigen(kern)$values), decreasing = TRUE)
-  K <- elbow_finder(seq_len(m), lambda)[1] - 1
-  # eigengap <- (lambda[-m] - lambda[-1]) / lambda[-1]
-  # K <- which.max(eigengap)
-  
-  if (K == 1) {
-    return(rep(1, m))
-  } else {
-    return(SpecClust(D, K))
+  if (is.null(K)) {
+    kern <- exp(-D)
+    lambda <- sort(abs(eigen(kern)$values), decreasing = TRUE)
+    K <- elbow_finder(seq_len(m), lambda)[1] - 1
+    # eigengap <- (lambda[-m] - lambda[-1]) / lambda[-1]
+    # K <- which.max(eigengap)
   }
+  
+  return(SpecClust(D, K))
   
 }
 
-two_step <- function(A, method, J = 10) {
+two_step <- function(A, method, J = 10, K = NULL) {
   # cluster networks via NCLM 
   # followed by spectral clustering of average MNBS graphon within class
   #
@@ -146,10 +146,10 @@ two_step <- function(A, method, J = 10) {
   n <- nrow(A[[1]])
   
   if (method == "NCGE") {
-    classes <- NCGE(A)
+    classes <- NCGE(A, K)
     
   } else if (method == "NCLM") {
-    classes <- NCLM(A, J) 
+    classes <- NCLM(A, J, K) 
   }
   
   K <- length(unique(classes))
