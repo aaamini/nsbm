@@ -20,13 +20,22 @@ mtd_names <- names(methods)
 # Data ----
 G <- c(networkdata::starwars[1:6]
        , networkdata::got
-       , lapply(c(439:440), function(i) eval(parse(text=paste0("networkdata::movie_", i)))) # LOTR       
+       # , lapply(c(27, 10:11, 12:14, 28), function(i) eval(parse(text=paste0("networkdata::shakespeare_", i))))
+       # , lapply(c(337:340), function(i) eval(parse(text=paste0("networkdata::movie_", i)))) # Hellraiser
+       # , lapply(c(367:369), function(i) eval(parse(text=paste0("networkdata::movie_", i)))) # Indiana Jones
+       # , lapply(c(395:397), function(i) eval(parse(text=paste0("networkdata::movie_", i)))) # Jurassic Park
+       , lapply(c(439:440), function(i) eval(parse(text=paste0("networkdata::movie_", i)))) # LOTR
+       # , lapply(c(602:604), function(i) eval(parse(text=paste0("networkdata::movie_", i)))) # Scream
+       # , lapply(c(652:654), function(i) eval(parse(text=paste0("networkdata::movie_", i)))) # Star Trek
+       
 )
 J <- length(G)
 z_tru <- c(rep(1, 6)  # SW
            , rep(2, 7) # GOT
+           # , rep(3, 7) # Shakespeare
            , rep(4, 2) # LOTR
 )
+K_tru <- length(unique(z_tru))
 xi_tru <- vector(mode = "list", length = 6)
 for (j in 1:6) {
   g <- G[[j]]
@@ -81,7 +90,7 @@ res = do.call(rbind, lapply(seq_along(methods), function(j) {
 }))
 
 # Summarize ----
-z_nclm <- NCLM(A)
+z_nclm <- NCLM(A, K = K_tru)
 rbind(res %>%
         group_by(method) %>%
         summarize(mean_z = mean(z_map_nmi)

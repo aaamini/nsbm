@@ -22,7 +22,7 @@ A <- vector(mode = "list", length = K)
 names(A) <- c("highschool", "facebook", "tumblr", "mit", "dblp")
 for (type in names(A)) {
   
-  path <- paste0("./", type, "/", type, "_ct1_")
+  path <- paste0("./final/", type, "/", type, "_ct1_")
   edges <- read.csv(paste0(path, "A.txt"), header = FALSE)
   graph_indicator <- read.csv(paste0(path, "graph_indicator.txt"), header = FALSE)
   graph_labels <- read.csv(paste0(path, "graph_labels.txt"), header = FALSE)
@@ -65,6 +65,7 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
   ind <- sample(J, JJ)
   A <- A[ind]
   z_tru <- z_tru[ind]
+  K_tru <- length(unique(z_tru))
   
   out = do.call(rbind, lapply(seq_along(methods), function(j) {
     
@@ -86,7 +87,7 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
     
   }))
   
-  z_nclm <- NCLM(A)
+  z_nclm <- NCLM(A, K = K_tru)
   
   rbind(out
         , data.frame(time = NA, rep = NA, J = JJ, iter = NA

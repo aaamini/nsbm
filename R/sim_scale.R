@@ -39,7 +39,8 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
                       , K = K_tru
                       , L = L_tru
                       , gam = 0.4
-                      , lambda = 25)
+                      # , lambda = 25)
+                      , lambda = n / 10)
   
   A = out$A
   z_tru = out$z
@@ -90,7 +91,7 @@ p_z <- mean_res %>%
   ggplot2::theme(
     legend.background = ggplot2::element_blank(),
     legend.title = ggplot2::element_blank(),
-    legend.position = c(0.75, 0.8),
+    legend.position = c(0.2, 0.85),
     text = element_text(size = 25)
   ) +
   ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
