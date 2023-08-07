@@ -9,4 +9,4 @@ The code relies on the [`nett` package](https://github.com/aaamini/nett) for som
 How to use:
 - Install the `nett` package from CRAN.
 - Run the `all_banch.R` in the root of the repository to test if everything works.
-```
+
