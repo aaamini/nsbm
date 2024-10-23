@@ -7,8 +7,6 @@ get_modes <- function(x) {
   ux[tab == max(tab)]
 }
 
-
-
 ############### Computes the MAP estimated of the labels ##################
 #' @export 
 get_map_labels <- function(z, burnin=NULL){
@@ -64,4 +62,34 @@ get_map_labels <- function(z, burnin=NULL){
 #   }
   
   list(labels=d, conf=zConf, Zmat=Zmat)
+}
+
+#' @export 
+get_minVI_labels <- function(z, burnin=NULL){
+  require(mcclust.ext)
+  
+  if (is.matrix(z)) {
+    # single layer case --  z is an "n x niter" matrix
+    n = nrow(z)
+    niter = ncol(z)
+    if (is.null(burnin))  burnin <- round(niter/2)
+    
+    z_cut = z[, (burnin+1):niter]
+    z_map <- minVI(comp.psm(t(z)))$cl
+    return(list(labels = z_map))
+  }
+  if (is.list(z)) {
+    nlayers <- length(z[[1]])
+    out = vector("list", nlayers)
+    for (j in 1:nlayers) {
+      z_mat <-  do.call(rbind, lapply(seq_along(z), function(itr) z[[itr]][[j]]))
+      out[[j]] = get_minVI_labels(z_mat, burnin = burnin)
+    }
+    # return(out)
+    return(list(labels = lapply(out, `[[`, 1)))
+  }
+  
+  stop("z should be either a matrix or a list")
+  
+  list(labels=d)
 }

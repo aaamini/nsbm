@@ -1,55 +1,41 @@
-# library ---
+# Libraries ----
 library(igraph)
-library(ggplot2)
 library(dplyr)
 library(parallel)
 library(kableExtra)
 
-# setwd("/project/sand/njosephs/NDP/nsbm/")
-#Rcpp::sourceCpp("src/NestedSBM.cpp", verbose = T)
-#setMethod("show", "Rcpp_NestedSBM", function(object) object$print())
-source("R/nSBM_functions.R")
-source("R/splice_sampler.R")
+# Functions ----
 source("R/data_gen.R")
 source("R/inference.R")
 source("R/nsbm_wrapper.R")
 source("R/NCLM.R")
-source("R/alma_v1.R")
-source("R/alma_v2.R")
-source("R/setup_methods3.R")
+source("R/alma.R")
+source("R/setup_methods.R")
 
-# simulation ----
-#set.seed(1234)
-niter = 100
-K = L = 15
-n_cores <- 1# detectCores()
-nreps <- n_cores
-rand_sbm <- TRUE
+# Settings ----
+niter <- 100  # number of iteration for Gibbs samplers
+K <- L <- 15  # truncation levels for NSBM models
+ncores <- 1 #detectCores()
+nreps <- ncores
 labeled <- TRUE
 trans_prob <- 0.7
-tag <- "A"
 
-n = 100 
-J = 20 
-K_tru = 3 
-L_tru = c(2,3,5)
-
-set.seed(42)
+n <- 200          # number of nodes
+J <- 20           # number of networks
+K_tru <- 3        # number of true classes
+L_tru <- c(2,3,5) # number of true communities in each class
 
 res = do.call(rbind, mclapply(1:nreps, function(rep) {
+  set.seed(rep)
   
-  if (rand_sbm) {
-    out = gen_rand_nsbm(n = n
-                        , J = J
-                        , K = K_tru
-                        , L = L_tru
-                        , gam = 0.2
-                        , lambda = 15
-                        , labeled = labeled
-                        , trans_prob = trans_prob)    
-  } else {
-    out = generate_nathans_data()  
-  }
+  out = gen_rand_nsbm(n = n
+                      , J = J
+                      , K = K_tru
+                      , L = L_tru
+                      , gam = 0.2
+                      , lambda = 15
+                      , labeled = labeled
+                      , trans_prob = trans_prob)    
   
   A = out$A
   z_tru = out$z
@@ -64,11 +50,19 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
     mout <- methods[[j]](A)
     runtime = as.numeric(Sys.time() - start_time)
     
+    if (mtd_names[j] %in% c("G", "CG", "BG", "IBG")) {
+      z <- get_minVI_labels(mout$z)$labels
+      xi <- lapply(1:J, function(j) get_minVI_labels(sapply(mout$xi, "[[", j))$labels)
+    } else {
+      z <- mout$z
+      xi <- mout$xi
+    }
+    
     cat(sprintf("%3.2f\n", runtime))
     data.frame(
       method = mtd_names[j],
-      z_nmi = nett::compute_mutual_info(mout$z, z_tru),
-      xi_nmi = hsbm::get_slice_nmi(mout$xi, xi_tru),
+      z_nmi = nett::compute_mutual_info(z, z_tru),
+      xi_nmi = hsbm::get_slice_nmi(xi, xi_tru),
       n = n,
       J = J,
       rep = rep,
@@ -79,11 +73,7 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
 
 res$method <- factor(res$method)
 
-if (rand_sbm) {
-  state_str =  sprintf("J = %d, n = %d, nreps = %d", J, n, nreps)  
-} else {
-  state_str = "HSBM: Multilayer personality-friendship network"
-}
+state_str =  sprintf("J = %d, n = %d, nreps = %d", J, n, nreps)  
 
 res_sum <- res %>% 
   group_by(method) %>% 
@@ -92,6 +82,6 @@ res_sum <- res %>%
             runtime = mean(runtime))
 
 kbl(res_sum %>% arrange(desc(z_nmi)), 
-                digits = 3) %>% 
+    digits = 3) %>% 
   kable_paper("hover", full_width = F) %>% 
   print()

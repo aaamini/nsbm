@@ -1,3 +1,10 @@
+process_two_step_labels <- function(result){
+  z <- result$classes
+  xi_j <- result$clusters
+  xi <- lapply(1:J, function(j) xi_j[[z[j]]])
+  return(list(z=z, xi=xi))
+}
+
 methods = list()
 
 methods[["G"]] = function(A) {
@@ -17,11 +24,16 @@ methods[["IBG"]] = function(A) {
 }
 
 methods[["NCGE"]] = function(A) {
-  two_step(A, method = "NCGE", K = K_tru)
+  process_two_step_labels( two_step(A, method = "NCGE", K = K_tru) )
 }
 
 methods[["NCLM"]] = function(A) {
-  two_step(A, method = "NCLM", K = K_tru)
+  process_two_step_labels( two_step(A, method = "NCLM", K = K_tru) )
+}
+
+methods[["ALMA"]] = function(A) {
+  cat('\n')
+  alma(A, L_tru, init='matlab', verbose=FALSE)
 }
 
 mtd_names = names(methods)

@@ -108,7 +108,7 @@ NCLM <- function(A, J = 10, K = NULL) {
   
   require(Matrix)
   
-  if (K == 1) return(rep(1, length(A)))
+  if (!(is.null(K)) && K == 1) return(rep(1, length(A)))
   
   m <- length(A)
   

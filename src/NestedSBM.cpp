@@ -667,7 +667,8 @@ public:
     // if (init_count_tensors) 
     comp_count_tensors();
     
-    set_xi_to_dpsbm_labels(50);
+    // Changed on 10/23/24
+    // set_xi_to_dpsbm_labels(50);
     
     for (int iter = 0; iter < niter; iter++) {
       for (int j = 0; j < J; j++) {
