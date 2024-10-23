@@ -149,4 +149,13 @@ p_xi <- res %>%
   scale_fill_manual(values = scales::hue_pal()(7)[c(1:4, 7)]) +
   scale_color_manual(values = scales::hue_pal()(7)[c(1:4, 7)])
 
-p_z + p_xi
+p_time <- res %>%
+  ggplot(aes(x = method, y = time, fill = method)) +
+  geom_boxplot() +
+  ylab("Run Time") + xlab("") +
+  guides(fill = "none") +
+  theme_minimal(base_size = 25) + theme(axis.text.x=element_text(angle = 45)) +
+  scale_fill_manual(values = scales::hue_pal()(7)[c(1:4, 7)]) +
+  scale_color_manual(values = scales::hue_pal()(7)[c(1:4, 7)])
+
+p_z + p_xi + p_time
