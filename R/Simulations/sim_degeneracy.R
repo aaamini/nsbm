@@ -11,20 +11,18 @@ source("R/NCLM.R")
 source("R/alma.R")
 source("R/setup_methods.R")
 
-# other methods need more than J > 2
+# other methods need J > 2
 methods[["NCLM"]] <- methods[["NCGE"]] <- methods[["ALMA"]] <- NULL
-methods[["CG"]] <- NULL # some issue with (CG) when J = 2
 mtd_names <- names(methods)
 
 # Settings ----
-niter <- 5000  # number of iteration for Gibbs samplers
-K <- 2   # truncation levels for NSBM models (need K <= J)
-L <- 15  # truncation levels for NSBM models
+niter <- 200   # number of iteration for Gibbs samplers
+K <- L <- 15   # truncation levels for NSBM models
 ncores <- detectCores()
 nreps <- ncores
 
 n <- 90           # number of nodes
-J <- 2           # number of networks
+J <- 2            # number of networks
 K_tru <- 2        # number of true classes
 L_tru <- c(3,3)   # number of true communities in each class
 
