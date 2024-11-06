@@ -11,14 +11,20 @@ source("R/NCLM.R")
 source("R/alma.R")
 source("R/setup_methods.R")
 
+# other methods need more than J > 2
+methods[["NCLM"]] <- methods[["NCGE"]] <- methods[["ALMA"]] <- NULL
+methods[["CG"]] <- NULL # some issue with (CG) when J = 2
+mtd_names <- names(methods)
+
 # Settings ----
-niter <- 2000  # number of iteration for Gibbs samplers
-K <- L <- 10  # truncation levels for NSBM models
+niter <- 5000  # number of iteration for Gibbs samplers
+K <- 2   # truncation levels for NSBM models (need K <= J)
+L <- 15  # truncation levels for NSBM models
 ncores <- detectCores()
 nreps <- ncores
 
 n <- 90           # number of nodes
-J <- 10           # number of networks
+J <- 2           # number of networks
 K_tru <- 2        # number of true classes
 L_tru <- c(3,3)   # number of true communities in each class
 
@@ -51,15 +57,8 @@ res = do.call(rbind, mclapply(1:nreps, function(rep) {
     mout <- methods[[j]](A)
     runtime = as.numeric(Sys.time() - start_time)
     
-    if (mtd_names[j] %in% c("G", "CG", "BG", "IBG")) {
-      z <- get_minVI_labels(mout$z)$labels
-      xi <- lapply(1:J, function(j) get_minVI_labels(sapply(mout$xi, "[[", j))$labels)
-      # z <- get_map_labels(mout$z)$labels
-      # xi <- lapply(1:J, function(j) get_map_labels(sapply(mout$xi, "[[", j))$labels)
-    } else {
-      z <- mout$z
-      xi <- mout$xi
-    }
+    z <- get_map_labels(mout$z)$labels
+    xi <- lapply(1:J, function(j) get_map_labels(sapply(mout$xi, "[[", j))$labels)
     
     cat(sprintf("%3.2f\n", runtime))
     data.frame(
@@ -84,7 +83,6 @@ res_sum <- res %>%
             xi_nmi = mean(xi_nmi),
             runtime = mean(runtime))
 
-# ALMA, NCGE, and NCLM all use the network labels, hence higher \xi-NMI
 kbl(res_sum %>% arrange(desc(z_nmi)), 
     digits = 3) %>% 
   kable_paper("hover", full_width = F) %>% 
