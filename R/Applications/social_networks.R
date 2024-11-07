@@ -7,6 +7,7 @@ library(ggplot2)
 library(dplyr)
 library(parallel)
 library(patchwork)
+library(kableExtra)
 
 # Functions ----
 source("R/inference.R")
@@ -97,44 +98,14 @@ res <- do.call(rbind, mclapply(seq_len(nreps), function(rep) {
                      , method = "NCLM"))
 }, mc.cores = ncores))
 
-# Visualize ----
-res <- res %>%
-  mutate(method = factor(method
-                         , levels = c(sort(mtd_names), "NCLM")
-                         , labels = c(sort(mtd_names), "NCLM")))
-
+# Summarize ----
 map_res <- res %>%
   group_by(method) %>%
-  summarise(mean_z_map = mean(z_map)
+  summarise(z_nmi = mean(z_map)
             , lower_z = quantile(z_map, .25), upper_z = quantile(z_map, .75)
             , .groups = "drop")
 
-mean_res =  res %>%
-  filter(method != "NCLM") %>%
-  group_by(iter, method) %>%
-  summarise(mean_z_nmi = mean(z_nmi)
-            , lower_z = quantile(z_nmi, .25), upper_z = quantile(z_nmi, .75)
-            , .groups = "drop")
-
-mean_res <- mean_res %>%
-  mutate(method = factor(method
-                         , levels = c(c(mtd_names, "NCLM"))
-                         , labels = paste0(map_res$method, ": ", round(map_res$mean_z_map, 2), " (", round(map_res$lower_z, 2), "-", round(map_res$upper_z, 2), ")")))
-
-mean_res %>%
-  ggplot(aes(x = iter, y = mean_z_nmi, color = method)) +
-  geom_line(size = 2) +
-  theme_minimal() +
-  ggplot2::theme(
-    legend.background = ggplot2::element_blank(),
-    legend.title = ggplot2::element_blank(),
-    legend.position = c(0.25, 0.85),
-    text = element_text(size = 25)
-  ) +
-  ggplot2::guides(colour = ggplot2::guide_legend(keywidth = 2, keyheight = .75)) +
-  geom_ribbon(aes(ymin = lower_z, ymax = upper_z, fill = method)
-              , alpha = 0.1, linetype = "blank") +
-  ylim(c(0, 1)) +  scale_x_continuous(n.breaks = 3) +
-  ylab(expression(bold(z)~"-NMI")) + xlab("Iteration") +
-  scale_fill_manual(values = scales::hue_pal()(7)[c(1:4, 6)], drop = FALSE) +
-  scale_color_manual(values = scales::hue_pal()(7)[c(1:4, 6)], drop = FALSE)
+kbl(map_res %>% arrange(desc(z_nmi)), 
+    digits = 3) %>% 
+  kable_paper("hover", full_width = F) %>% 
+  print()
