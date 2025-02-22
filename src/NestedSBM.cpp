@@ -340,7 +340,10 @@ public:
         break;
         
       case 3:
-        if (iter == 0) set_xi_to_dpsbm_labels(50);
+        if (iter == 0) {
+          set_xi_to_dpsbm_labels(50);
+          xi_hist[0] = xi;
+        }
         update_eta(); // also updates count tensors m and mbar 
         for (int j = 0; j < J; j++) {
           update_z_element_via_eta(j);
@@ -368,7 +371,10 @@ public:
         break;
         
       case 5:
-        if (iter == 0) set_xi_to_dpsbm_labels(50);
+        if (iter == 0) {
+          set_xi_to_dpsbm_labels(50);
+          xi_hist[0] = xi;
+        }
         update_eta(); // also updates count tensors m and mbar
         for (int j = 0; j < J; j++) {
           for (int s = 0; s < n(j); s++) {
@@ -382,7 +388,10 @@ public:
         break;
         
       case 6:
-        if (iter == 0) set_xi_to_dpsbm_labels(50);
+        if (iter == 0) {
+          set_xi_to_dpsbm_labels(50); 
+          xi_hist[0] = xi;
+        }
         update_eta(); // also updates count tensors m and mbar 
         for (int j = 0; j < J; j++) {
           update_z_element_via_eta(j);
@@ -573,12 +582,13 @@ public:
     std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
     arma::umat z_hist(J, niter+1);
     
-    xi_hist[0] = xi;
+    // xi_hist[0] = xi;
     z_hist.col(0) = z + 1;
     // if (init_count_tensors)
     comp_count_tensors();
     
     set_xi_to_dpsbm_labels(50); // causes an error when updating z
+    xi_hist[0] = xi;
     
     for (int iter = 0; iter < niter; iter++) {
       
