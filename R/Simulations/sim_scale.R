@@ -55,8 +55,8 @@ res <- do.call(rbind, mclapply(seq_len(nrow(runs)), function(ri) {
     z_hist = mout$z
     xi_hist = mout$xi
     
-    z <- get_map_labels(z_hist)$labels
-    xi <- lapply(1:J, function(j) get_map_labels(sapply(xi_hist, "[[", j))$labels)
+    z <- get_minVI_labels(z_hist)$labels
+    xi <- lapply(1:J, function(j) get_minVI_labels(sapply(xi_hist, "[[", j))$labels)
     
     data.frame(
       time = end_time

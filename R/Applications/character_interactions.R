@@ -40,8 +40,8 @@ for (j in 1:6) {
 A <- lapply(G, as_adj)
 
 # NSBM ----
-niter <- 5000 # number of iteration for Gibbs samplers
-K <- L <- 10  # truncation levels for NSBM models
+niter <- 500 # number of iteration for Gibbs samplers
+K <- L <- 15 # truncation levels for NSBM models
 
 set.seed(575)
 res = do.call(rbind, lapply(seq_along(methods), function(j) {
@@ -70,8 +70,8 @@ res = do.call(rbind, lapply(seq_along(methods), function(j) {
     }
   }
   
-  z <- get_map_labels(z_hist)$labels
-  xi <- lapply(1:6, function(j) get_map_labels(sapply(xi_hist_known, "[[", j))$labels)
+  z <- get_minVI_labels(z_hist)$labels
+  xi <- lapply(1:6, function(j) get_minVI_labels(sapply(xi_hist_known, "[[", j))$labels)
   
   data.frame(
     time = end_time
