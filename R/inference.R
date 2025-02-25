@@ -66,7 +66,8 @@ get_map_labels <- function(z, burnin=NULL){
 
 #' @export 
 get_minVI_labels <- function(z, burnin=NULL){
-  require(mcclust.ext)
+  # require(mcclust.ext)
+  require(salso)
   
   if (is.matrix(z)) {
     # single layer case --  z is an "n x niter" matrix
@@ -75,7 +76,8 @@ get_minVI_labels <- function(z, burnin=NULL){
     if (is.null(burnin))  burnin <- round(niter/2)
     
     z_cut = z[, (burnin+1):niter]
-    z_map <- minVI(comp.psm(t(z)))$cl
+    z_map <- salso(t(z))
+    # z_map <- minVI(comp.psm(t(z)))$cl
     return(list(labels = z_map))
   }
   if (is.list(z)) {

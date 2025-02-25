@@ -40,8 +40,8 @@ for (j in 1:6) {
 A <- lapply(G, as_adj)
 
 # NSBM ----
-niter <- 500 # number of iteration for Gibbs samplers
-K <- L <- 15 # truncation levels for NSBM models
+niter <- 5000 # number of iteration for Gibbs samplers
+K <- L <- 15  # truncation levels for NSBM models
 
 set.seed(575)
 res = do.call(rbind, lapply(seq_along(methods), function(j) {
