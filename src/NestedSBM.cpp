@@ -672,14 +672,12 @@ public:
     std::vector<std::vector<arma::uvec>> xi_hist(niter+1);
     arma::umat z_hist(J, niter+1);
     
+    set_xi_to_dpsbm_labels(50);
     xi_hist[0] = xi;
     z_hist.col(0) = z + 1;
     // if (init_count_tensors) 
     comp_count_tensors();
-    
-    // Changed on 10/23/24
-    // set_xi_to_dpsbm_labels(50);
-    
+        
     for (int iter = 0; iter < niter; iter++) {
       for (int j = 0; j < J; j++) {
         update_z_element_naive(j);
