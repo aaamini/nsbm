@@ -97,3 +97,13 @@ kbl(res_sum %>% arrange(desc(z_nmi)),
     digits = 3) %>% 
   kable_paper("hover", full_width = F) %>% 
   print()
+
+p <- res %>%
+  ggplot(aes(x = iter, y = z_nmi, color = method)) +
+  geom_line() +
+  facet_wrap(~ method, ncol = 2) +
+  scale_x_log10() +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggsave("z_nmi_dynamic.png", plot = p, width = 8, height = 6, dpi = 300)
